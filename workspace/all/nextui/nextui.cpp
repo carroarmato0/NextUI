@@ -199,31 +199,11 @@ static void EntryArray_free(Array* self) {
 
 ///////////////////////////////////////
 
-#define INT_ARRAY_MAX 27
-typedef struct IntArray {
-	int count;
-	int items[INT_ARRAY_MAX];
-} IntArray;
-static IntArray* IntArray_new(void) {
-	IntArray* self = (IntArray*)(malloc(sizeof(IntArray)));
-	self->count = 0;
-	memset(self->items, 0, sizeof(int) * INT_ARRAY_MAX);
-	return self;
-}
-static void IntArray_push(IntArray* self, int i) {
-	self->items[self->count++] = i;
-}
-static void IntArray_free(IntArray* self) {
-	free(self);
-}
-
-///////////////////////////////////////
-
 typedef struct Directory {
 	char* path;
 	char* name;
 	Array* entries;
-	IntArray* alphas;
+	std::vector<int>* alphas;
 	// rendering
 	int selected;
 	int start;
@@ -350,8 +330,8 @@ static void Directory_index(Directory* self) {
         if (!skip_index) {
             int a = getIndexChar(entry->name);
             if (a != alpha) {
-                index = self->alphas->count;
-                IntArray_push(self->alphas, i);
+                index = (int)self->alphas->size();
+                self->alphas->push_back(i);
                 alpha = a;
             }
             entry->alpha = index;
@@ -395,7 +375,7 @@ static Directory* Directory_new(char* path, int selected) {
 	else {
 		self->entries = getEntries(path);
 	}
-	self->alphas = IntArray_new();
+	self->alphas = new std::vector<int>();
 	self->selected = selected;
 	Directory_index(self);
 	return self;
@@ -404,7 +384,7 @@ static void Directory_free(Directory* self) {
 	free(self->path);
 	free(self->name);
 	EntryArray_free(self->entries);
-	IntArray_free(self->alphas);
+	delete self->alphas;
 	free(self);
 }
 
@@ -2589,7 +2569,7 @@ int main (int argc, char *argv[]) {
 				Entry* entry = static_cast<Entry*>(top->entries->items[selected]);
 				int i = entry->alpha-1;
 				if (i>=0) {
-					selected = top->alphas->items[i];
+					selected = (*top->alphas)[i];
 					if (total>MAIN_ROW_COUNT) {
 						top->start = selected;
 						top->end = top->start + MAIN_ROW_COUNT;
@@ -2601,8 +2581,8 @@ int main (int argc, char *argv[]) {
 			else if (PAD_justRepeated(BTN_R1) && !PAD_isPressed(BTN_L1) && !PWR_ignoreSettingInput(BTN_R1, show_setting)) { // next alpha
 				Entry* entry = static_cast<Entry*>(top->entries->items[selected]);
 				int i = entry->alpha+1;
-				if (i<top->alphas->count) {
-					selected = top->alphas->items[i];
+				if (i<(int)top->alphas->size()) {
+					selected = (*top->alphas)[i];
 					if (total>MAIN_ROW_COUNT) {
 						top->start = selected;
 						top->end = top->start + MAIN_ROW_COUNT;
