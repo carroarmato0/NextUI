@@ -15,7 +15,9 @@
 #include <vector>
 #include <unordered_map>
 #include <algorithm>
+#include <thread>
 #include "core/str.h"
+#include "core/thread_safe_queue.h"
 
 extern "C" {
 #include <msettings.h>
@@ -1832,21 +1834,38 @@ int ThumbLoadWorker(void* unused) {
     return 0;
 }
 
-void startLoadFolderBackground(const char* imagePath, BackgroundLoadedCallback callback, void* userData) {
-#if NEXTUI_POC_NO_WORKERS
-    // POC: async background loading disabled. folderbgbmp stays NULL; every
-    // background draw is NULL-guarded and falls through to GFX_clearLayers.
-    (void)imagePath; (void)callback; (void)userData;
-    return;
-#else
-    LoadBackgroundTask* task = (LoadBackgroundTask*)(malloc(sizeof(LoadBackgroundTask)));
-    if (!task) return;
+// --- Folder background loader ------------------------------------------------
+// One std::thread consuming a thread-safe queue. Replaces the hand-rolled
+// SDL_mutex/SDL_cond linked-list queue + BGLoadWorker (whose data race the POC
+// had to disable). A request is just the image path plus the callback that
+// hands the decoded surface back (onBackgroundLoaded, which stores it under
+// bgMutex for the main thread to draw). IMG_Load / SDL_ConvertSurfaceFormat only
+// touch CPU-side pixel buffers, so they're safe off the main thread.
+struct ImageLoadRequest {
+	std::string path;
+	BackgroundLoadedCallback callback;
+};
+// Capacity 1: only the most recently requested background matters. If the user
+// has already navigated on, the stale request is dropped before it's loaded.
+static core::ThreadSafeQueue<ImageLoadRequest> bgLoadQueue(1);
+static std::thread bgLoadWorkerThread;
 
- 	snprintf(task->imagePath, sizeof(task->imagePath), "%s", imagePath);
-    task->callback = callback;
-    task->userData = userData;
-    enqueueBGTask(task);
-#endif
+static void bgLoadWorkerLoop(void) {
+	ImageLoadRequest req;
+	while (bgLoadQueue.pop(req)) {
+		SDL_Surface* surface = NULL;
+		SDL_Surface* raw = IMG_Load(req.path.c_str());
+		if (raw) {
+			surface = SDL_ConvertSurfaceFormat(raw, screen->format->format, 0);
+			SDL_FreeSurface(raw);
+		}
+		req.callback(surface); // onBackgroundLoaded, hands off under bgMutex
+	}
+}
+
+void startLoadFolderBackground(const char* imagePath, BackgroundLoadedCallback callback, void* userData) {
+	(void)userData;
+	bgLoadQueue.push({ imagePath, callback });
 }
 
 void onBackgroundLoaded(SDL_Surface* surface) {
@@ -2122,9 +2141,13 @@ void initImageLoaderPool() {
 	fontMutex = SDL_CreateMutex();
 	flipCond = SDL_CreateCond();
 
+    // Folder backgrounds run again, on the std::thread + ThreadSafeQueue loader.
+    bgLoadWorkerThread = std::thread(bgLoadWorkerLoop);
+
 #if NEXTUI_POC_NO_WORKERS
-    // POC: do not spawn the image-loader / pill-animation worker threads. The
-    // thread handles stay NULL so cleanupImageLoaderPool's join guards skip them.
+    // The legacy SDL bg worker is superseded by bgLoadWorkerThread above. The
+    // pill animation is now main-thread. Thumbnails are still on the old
+    // disabled path (next to migrate to the queue), so their thread stays NULL.
     bgLoadThread = NULL;
     thumbLoadThread = NULL;
     animWorkerThread = NULL;
@@ -2136,6 +2159,11 @@ void initImageLoaderPool() {
 }
 
 void cleanupImageLoaderPool() {
+	// Stop the folder-background loader: the queue's shutdown() unblocks its
+	// pop() and the worker returns, then we join it.
+	bgLoadQueue.shutdown();
+	if (bgLoadWorkerThread.joinable()) bgLoadWorkerThread.join();
+
 	// Signal all worker threads to exit (atomic set for thread safety)
 	SDL_AtomicSet(&workerThreadsShutdown, 1);
 
