@@ -27,9 +27,12 @@ CXXSOURCE += build/$(PLATFORM)/utils.o build/$(PLATFORM)/api.o build/$(PLATFORM)
 
 CC = $(CROSS_COMPILE)gcc
 CXX = $(CROSS_COMPILE)g++
+# Prefer real C++20; fall back to gnu++2a on older toolchains (e.g. the current
+# gcc 8.3 tg5040 cross-compiler, which predates the -std=gnu++20 spelling).
+CXXSTD := $(shell printf 'int main(){return 0;}' | $(CXX) -std=gnu++20 -x c++ - -o /dev/null >/dev/null 2>&1 && echo gnu++20 || echo gnu++2a)
 CFLAGS += $(OPT)
 CFLAGS += $(INCDIR) -DPLATFORM=\"$(PLATFORM)\"
-CXXFLAGS += $(CFLAGS) -std=gnu++20
+CXXFLAGS += $(CFLAGS) -std=$(CXXSTD)
 CFLAGS += -fpermissive
 LDFLAGS +=  -lmsettings -lcrypto
 ifeq ($(PLATFORM), tg5040)
