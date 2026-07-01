@@ -23,6 +23,19 @@ extern "C" {
 #include "config.h"
 }
 
+// ---------------------------------------------------------------------------
+// POC SCAFFOLDING (temporary)
+//
+// The background/thumbnail image loaders and the pill-animation worker use a
+// hand-rolled multi-threaded task queue that has latent memory-corruption bugs
+// (a stray write that smashes the stack / dynamic-linker state; benign under the
+// old C build, fatal once compiled as C++). For the C++ port POC we disable
+// those worker threads and run the launcher without async image loading,
+// thumbnails, backgrounds and the pill animation. These are to be reintroduced
+// later with a correct, thread-safe implementation. Grep NEXTUI_POC_NO_WORKERS.
+// ---------------------------------------------------------------------------
+#define NEXTUI_POC_NO_WORKERS 1
+
 ///////////////////////////////////////
 
 typedef struct Array {
@@ -1931,6 +1944,12 @@ int ThumbLoadWorker(void* unused) {
 }
 
 void startLoadFolderBackground(const char* imagePath, BackgroundLoadedCallback callback, void* userData) {
+#if NEXTUI_POC_NO_WORKERS
+    // POC: async background loading disabled. folderbgbmp stays NULL; every
+    // background draw is NULL-guarded and falls through to GFX_clearLayers.
+    (void)imagePath; (void)callback; (void)userData;
+    return;
+#else
     LoadBackgroundTask* task = (LoadBackgroundTask*)(malloc(sizeof(LoadBackgroundTask)));
     if (!task) return;
 
@@ -1938,6 +1957,7 @@ void startLoadFolderBackground(const char* imagePath, BackgroundLoadedCallback c
     task->callback = callback;
     task->userData = userData;
     enqueueBGTask(task);
+#endif
 }
 
 void onBackgroundLoaded(SDL_Surface* surface) {
@@ -1955,6 +1975,12 @@ void onBackgroundLoaded(SDL_Surface* surface) {
 }
 
 void startLoadThumb(const char* thumbpath, BackgroundLoadedCallback callback, void* userData) {
+#if NEXTUI_POC_NO_WORKERS
+    // POC: async thumbnail loading disabled. thumbbmp stays NULL; the thumbnail
+    // draw is guarded by `if(thumbbmp && thumbchanged)` and falls through to clear.
+    (void)thumbpath; (void)callback; (void)userData;
+    return;
+#else
     LoadBackgroundTask* task = (LoadBackgroundTask*)(malloc(sizeof(LoadBackgroundTask)));
     if (!task) return;
 
@@ -1962,6 +1988,7 @@ void startLoadThumb(const char* thumbpath, BackgroundLoadedCallback callback, vo
     task->callback = callback;
     task->userData = userData;
     enqueueThumbTask(task);
+#endif
 }
 void onThumbLoaded(SDL_Surface* surface) {
 	SDL_LockMutex(thumbMutex);
@@ -2114,8 +2141,28 @@ void enqueueanmimtask(AnimTask* task) {
 }
 
 void animPill(AnimTask *task) {
+#if NEXTUI_POC_NO_WORKERS
+	// POC: the worker-thread pill animation is disabled. Apply the final pill
+	// position directly (instant, no tween) instead of queueing it for animWorker.
+	// This is what animcallback would have set on the last frame.
+	SDL_LockMutex(animMutex);
+	pillRect.x = task->targetX;
+	pillRect.y = task->targetY;
+	pillRect.w = task->move_w;
+	pillRect.h = task->move_h;
+	pilltargetY = task->targetY;
+	pilltargetTextY = task->targetTextY;
+	pillanimdone = true;
+	SDL_UnlockMutex(animMutex);
+	setNeedDraw(1);
+	setAnimationDraw(1);
+	// The caller malloc'd the task and does not use it after this call.
+	if (task->entry_name) free(task->entry_name);
+	free(task);
+#else
 	task->callback = animcallback;
 	enqueueanmimtask(task);
+#endif
 }
 
 void initImageLoaderPool() {
@@ -2137,9 +2184,17 @@ void initImageLoaderPool() {
 	fontMutex = SDL_CreateMutex();
 	flipCond = SDL_CreateCond();
 
+#if NEXTUI_POC_NO_WORKERS
+    // POC: do not spawn the image-loader / pill-animation worker threads. The
+    // thread handles stay NULL so cleanupImageLoaderPool's join guards skip them.
+    bgLoadThread = NULL;
+    thumbLoadThread = NULL;
+    animWorkerThread = NULL;
+#else
     bgLoadThread = SDL_CreateThread(BGLoadWorker, "BGLoadWorker", NULL);
     thumbLoadThread = SDL_CreateThread(ThumbLoadWorker, "ThumbLoadWorker", NULL);
 	animWorkerThread = SDL_CreateThread(animWorker, "animWorker", NULL);
+#endif
 }
 
 void cleanupImageLoaderPool() {
