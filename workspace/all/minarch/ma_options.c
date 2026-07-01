@@ -53,12 +53,10 @@ void OptionList_init(const struct retro_core_option_definition *defs) {
 			Option* item = &config.core.options[i];
 			len = strlen(def->key) + 1;
 
-			item->key = calloc(len, sizeof(char));
-			strcpy(item->key, def->key);
+			item->key = strdup(def->key);
 
 			len = strlen(def->desc) + 1;
-			item->name = calloc(len, sizeof(char));
-			strcpy(item->name, getOptionNameFromKey(def->key,def->desc));
+			item->name = strdup(getOptionNameFromKey(def->key,def->desc));
 
 			if (def->info) {
 				len = strlen(def->info) + 1;
@@ -84,13 +82,11 @@ void OptionList_init(const struct retro_core_option_definition *defs) {
 				const char* label = def->values[j].label;
 
 				len = strlen(value) + 1;
-				item->values[j] = calloc(len, sizeof(char));
-				strcpy(item->values[j], value);
+				item->values[j] = strdup(value);
 
 				if (label) {
 					len = strlen(label) + 1;
-					item->labels[j] = calloc(len, sizeof(char));
-					strcpy(item->labels[j], label);
+					item->labels[j] = strdup(label);
 				}
 				else {
 					item->labels[j] = item->values[j];
@@ -204,12 +200,10 @@ void OptionList_vars(const struct retro_variable *vars) {
 			Option* item = &config.core.options[i];
 
 			len = strlen(var->key) + 1;
-			item->key = calloc(len, sizeof(char));
-			strcpy(item->key, var->key);
+			item->key = strdup(var->key);
 
 			len = strlen(var->value) + 1;
-			item->var = calloc(len, sizeof(char));
-			strcpy(item->var, var->value);
+			item->var = strdup(var->value);
 
 			char* tmp = strchr(item->var, ';');
 			if (tmp && *(tmp+1)==' ') {

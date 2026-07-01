@@ -514,8 +514,7 @@ int OptionCheats_openMenu(MenuList* list, int i) {
 
 			// this stuff gets actually copied around.. what year is it?
 			int len = strlen(cheat->name) + 1;
-			item->name = calloc(len, sizeof(char));
-			strcpy(item->name, cheat->name);
+			item->name = strdup(cheat->name);
 
 			if(cheat->info) {
 				len = strlen(cheat->info) + 1;
@@ -557,7 +556,7 @@ int OptionCheats_openMenu(MenuList* list, int i) {
 		const char* title = "No cheat file loaded.\n\n";
 		size_t title_len = strlen(title);
 
-		strcpy(cheats_path, title);  // Use strcpy for first string
+		snprintf(cheats_path, sizeof(cheats_path), "%s", title);  // Use strcpy for first string
 		size_t current_len = title_len;
 
 		for (int i = 0; i < count && i < CHEAT_MAX_DISPLAY_PATHS; i++) {
@@ -575,16 +574,16 @@ int OptionCheats_openMenu(MenuList* list, int i) {
 			// Check if adding this path would overflow the buffer
 			if (current_len + p_len + newline_len >= CHEAT_MAX_LIST_LENGTH) {
 				LOG_info("Cheats path buffer would overflow, truncating list\n");
-				strcat(cheats_path, "...");
+				strncat(cheats_path, "...", sizeof(cheats_path) - strlen(cheats_path) - 1);
 				break;
 			}
 
 			// Safe to append
-			strcat(cheats_path, p);
+			strncat(cheats_path, p, sizeof(cheats_path) - strlen(cheats_path) - 1);
 			current_len += p_len;
 
 			if (i < count - 1) {
-				strcat(cheats_path, "\n");
+				strncat(cheats_path, "\n", sizeof(cheats_path) - strlen(cheats_path) - 1);
 				current_len += 1;
 			}
 		}

@@ -128,7 +128,7 @@ void hdmimon(void) {
 
 int main(int argc , char* argv[]) {
 	//static char asoundpath[MAX_PATH];
-	//sprintf(asoundpath, "%s/.asoundrc", getenv("HOME"));
+	//snprintf(asoundpath, sizeof(asoundpath), "%s/.asoundrc", getenv("HOME"));
 	//LOG_info("minarch: need asoundrc at %s\n", asoundpath);
 	//if(exists(asoundpath))
 	//	LOG_info("asoundrc exists at %s\n", asoundpath);
@@ -145,8 +145,8 @@ int main(int argc , char* argv[]) {
 	char rom_path[MAX_PATH];
 	char tag_name[MAX_PATH];
 
-	strcpy(core_path, argv[1]);
-	strcpy(rom_path, argv[2]);
+	snprintf(core_path, sizeof(core_path), "%s", argv[1]);
+	snprintf(rom_path, sizeof(rom_path), "%s", argv[2]);
 	getEmuName(rom_path, tag_name);
 	
 	LOG_info("rom_path: %s\n", rom_path);

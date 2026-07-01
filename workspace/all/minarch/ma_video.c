@@ -455,7 +455,7 @@ void selectScaler(int src_w, int src_h, int src_p) {
 		// this is the same whether fit or oversized
 		scale = MIN(DEVICE_WIDTH/src_w, DEVICE_HEIGHT/src_h);
 		if (!scale) {
-			sprintf(scaler_name, "forced crop");
+			snprintf(scaler_name, sizeof(scaler_name), "forced crop");
 			dst_w = DEVICE_WIDTH;
 			dst_h = DEVICE_HEIGHT;
 			dst_p = DEVICE_PITCH;
@@ -478,7 +478,7 @@ void selectScaler(int src_w, int src_h, int src_p) {
 			int scale_y = CEIL_DIV(DEVICE_HEIGHT, src_h);
 			scale = MIN(scale_x, scale_y);
 
-			sprintf(scaler_name, "cropped");
+			snprintf(scaler_name, sizeof(scaler_name), "cropped");
 			dst_w = DEVICE_WIDTH;
 			dst_h = DEVICE_HEIGHT;
 			dst_p = DEVICE_PITCH;
@@ -508,7 +508,7 @@ void selectScaler(int src_w, int src_h, int src_p) {
 			}
 		}
 		else {
-			sprintf(scaler_name, "integer");
+			snprintf(scaler_name, sizeof(scaler_name), "integer");
 			int scaled_w = src_w * scale;
 			int scaled_h = src_h * scale;
 			dst_w = DEVICE_WIDTH;
@@ -534,7 +534,7 @@ void selectScaler(int src_w, int src_h, int src_p) {
 		int scaled_h = src_h * scale;
 		
 		if (scaling==SCALE_FULLSCREEN) {
-			sprintf(scaler_name, "full%i", scale);
+			snprintf(scaler_name, sizeof(scaler_name), "full%i", scale);
 			// type = 'full (oversized)';
 			dst_w = scaled_w;
 			dst_h = scaled_h;
@@ -563,7 +563,7 @@ void selectScaler(int src_w, int src_h, int src_p) {
 			
 			dst_p = dst_w * FIXED_BPP;
 			
-			sprintf(scaler_name, "raw%i", scale);
+			snprintf(scaler_name, sizeof(scaler_name), "raw%i", scale);
 		}
 		else {
 			double src_aspect_ratio = ((double)src_w) / src_h;
@@ -583,7 +583,7 @@ void selectScaler(int src_w, int src_h, int src_p) {
 			// then to fixed aspect
 						
 			if (core_aspect>fixed_aspect) {
-				sprintf(scaler_name, "aspect%iL", scale);
+				snprintf(scaler_name, sizeof(scaler_name), "aspect%iL", scale);
 				// letterbox
 				// dst_w = scaled_w;
 				// dst_h = scaled_w / fixed_aspect_ratio;
@@ -596,7 +596,7 @@ void selectScaler(int src_w, int src_h, int src_p) {
 				dst_y = (dst_h - scaled_h) / 2;
 			}
 			else if (core_aspect<fixed_aspect) {
-				sprintf(scaler_name, "aspect%iP", scale);
+				snprintf(scaler_name, sizeof(scaler_name), "aspect%iP", scale);
 				// pillarbox
 				// dst_w = scaled_h * fixed_aspect_ratio;
 				// dst_w += dst_w%2;
@@ -610,7 +610,7 @@ void selectScaler(int src_w, int src_h, int src_p) {
 				dst_x = (dst_w - scaled_w) / 2;
 			}
 			else {
-				sprintf(scaler_name, "aspect%iM", scale);
+				snprintf(scaler_name, sizeof(scaler_name), "aspect%iM", scale);
 				// perfect match
 				dst_w = scaled_w;
 				dst_h = scaled_h;
@@ -694,39 +694,39 @@ static void drawDebugHud(const void* data, unsigned width, unsigned height, size
 		int scale = renderer.scale;
 		if (scale==-1) scale = 1; // nearest neighbor flag
 
-		sprintf(debug_text, "%ix%i %ix %i/%i", renderer.src_w,renderer.src_h, scale,perf.samplerate_in,perf.samplerate_out);
+		snprintf(debug_text, sizeof(debug_text), "%ix%i %ix %i/%i", renderer.src_w,renderer.src_h, scale,perf.samplerate_in,perf.samplerate_out);
 		blitBitmapText(debug_text,x,y,(uint32_t*)data,pitch / 4, width,height);
 		
-		sprintf(debug_text, "%.03f/%i/%.0f/%i/%i/%i", perf.ratio,
+		snprintf(debug_text, sizeof(debug_text), "%.03f/%i/%.0f/%i/%i/%i", perf.ratio,
 				perf.buffer_size,perf.buffer_ms, perf.buffer_free, perf.buffer_target,perf.avg_buffer_free);
 		blitBitmapText(debug_text, x, y + 14, (uint32_t*)data, pitch / 4, width,
 					height);
 
-		sprintf(debug_text, "%i,%i %ix%i", renderer.dst_x,renderer.dst_y, renderer.src_w*scale,renderer.src_h*scale);
+		snprintf(debug_text, sizeof(debug_text), "%i,%i %ix%i", renderer.dst_x,renderer.dst_y, renderer.src_w*scale,renderer.src_h*scale);
 		blitBitmapText(debug_text,-x,y,(uint32_t*)data,pitch / 4, width,height);
 	
-		sprintf(debug_text, "%ix%i,%i", renderer.dst_w,renderer.dst_h, fmt == RETRO_PIXEL_FORMAT_XRGB8888 ? 8888 : 565);
+		snprintf(debug_text, sizeof(debug_text), "%ix%i,%i", renderer.dst_w,renderer.dst_h, fmt == RETRO_PIXEL_FORMAT_XRGB8888 ? 8888 : 565);
 		blitBitmapText(debug_text,-x,-y,(uint32_t*)data,pitch / 4, width,height);
 
 		// Frame timing stats
-		sprintf(debug_text, "%.1f/%.1f A:%.1f M:%.1f D:%d", perf.fps, perf.req_fps, perf.avg_frame_ms, perf.max_frame_ms, perf.frame_drops);
+		snprintf(debug_text, sizeof(debug_text), "%.1f/%.1f A:%.1f M:%.1f D:%d", perf.fps, perf.req_fps, perf.avg_frame_ms, perf.max_frame_ms, perf.frame_drops);
 		blitBitmapText(debug_text,x,-y,(uint32_t*)data,pitch / 4, width,height);
 		
 		// CPU stats
 		PLAT_getCPUSpeed();
 		PLAT_getCPUTemp();
-		sprintf(debug_text, "%.0f%%/%ihz/%ic", perf.cpu_usage, perf.cpu_speed, perf.cpu_temp);
+		snprintf(debug_text, sizeof(debug_text), "%.0f%%/%ihz/%ic", perf.cpu_usage, perf.cpu_speed, perf.cpu_temp);
 		blitBitmapText(debug_text,x,-y - 14,(uint32_t*)data,pitch / 4, width,height);
 		
 		// GPU stats
 		PLAT_getGPUUsage();
 		PLAT_getGPUSpeed();
 		PLAT_getGPUTemp();
-		sprintf(debug_text, "%.0f%%/%ihz/%ic", perf.gpu_usage, perf.gpu_speed, perf.gpu_temp);
+		snprintf(debug_text, sizeof(debug_text), "%.0f%%/%ihz/%ic", perf.gpu_usage, perf.gpu_speed, perf.gpu_temp);
 		blitBitmapText(debug_text,x,-y - 28,(uint32_t*)data,pitch / 4, width,height);
 
 		if(currentshaderpass>0) {
-			sprintf(debug_text, "%i/%ix%i/%ix%i/%ix%i", currentshaderpass, currentshadersrcw,currentshadersrch,currentshadertexw,currentshadertexh,currentshaderdstw,currentshaderdsth);
+			snprintf(debug_text, sizeof(debug_text), "%i/%ix%i/%ix%i/%ix%i", currentshaderpass, currentshadersrcw,currentshadersrch,currentshadertexw,currentshadertexh,currentshaderdstw,currentshaderdsth);
 			blitBitmapText(debug_text,x,-y - 42,(uint32_t*)data,pitch / 4, width,height);
 		}
 	

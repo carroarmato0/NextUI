@@ -176,17 +176,17 @@ void Menu_init(void) {
 	
 	char emu_name[256];
 	getEmuName(game.path, emu_name);
-	sprintf(menu.minui_dir, SHARED_USERDATA_PATH "/.minui/%s", emu_name);
+	snprintf(menu.minui_dir, sizeof(menu.minui_dir), SHARED_USERDATA_PATH "/.minui/%s", emu_name);
 	mkdir(menu.minui_dir, 0755);
 
 	// always sanitized/outer name, to keep main UI from having to inspect archives
-	sprintf(menu.slot_path, "%s/%s.txt", menu.minui_dir, game.name);
+	snprintf(menu.slot_path, sizeof(menu.slot_path), "%s/%s.txt", menu.minui_dir, game.name);
 	
 	if (simple_mode) menu.items[ITEM_OPTS] = "Reset";
 	
 	if (game.m3u_path[0]) {
 		char* tmp;
-		strcpy(menu.base_path, game.m3u_path);
+		snprintf(menu.base_path, sizeof(menu.base_path), "%s", game.m3u_path);
 		tmp = strrchr(menu.base_path, '/') + 1;
 		tmp[0] = '\0';
 		
@@ -200,9 +200,9 @@ void Menu_init(void) {
 				if (strlen(line)==0) continue; // skip empty lines
 		
 				char disc_path[256];
-				strcpy(disc_path, menu.base_path);
+				snprintf(disc_path, sizeof(disc_path), "%s", menu.base_path);
 				tmp = disc_path + strlen(disc_path);
-				strcpy(tmp, line);
+				snprintf(tmp, sizeof(disc_path) - (tmp - disc_path), "%s", line);
 				
 				// found a valid disc path
 				if (exists(disc_path)) {
@@ -967,11 +967,11 @@ bool getAlias(char* path, char* alias) {
 	// LOG_info("alias path: %s\n", path);
 	char* tmp;
 	char map_path[256];
-	strcpy(map_path, path);
+	snprintf(map_path, sizeof(map_path), "%s", path);
 	tmp = strrchr(map_path, '/');
 	if (tmp) {
 		tmp += 1;
-		strcpy(tmp, "map.txt");
+		snprintf(tmp, sizeof(map_path) - (tmp - map_path), "%s", "map.txt");
 		// LOG_info("map_path: %s\n", map_path);
 	}
 	char* file_name = strrchr(path,'/');
@@ -993,7 +993,7 @@ bool getAlias(char* path, char* alias) {
 					char* key = line;
 					char* value = tmp+1;
 					if (exactMatch(file_name,key)) {
-						strcpy(alias, value);
+						snprintf(alias, 256, "%s", value); // alias buffer is >=256 at every caller
 						is_alias = true;
 						break;
 					}
@@ -1571,8 +1571,8 @@ static void Menu_updateState(void) {
 	state_slot = last_slot;
 
 	// always sanitized/outer name, to keep main UI from having to inspect archives
-	sprintf(menu.bmp_path, "%s/%s.%d.bmp", menu.minui_dir, game.name, menu.slot);
-	sprintf(menu.txt_path, "%s/%s.%d.txt", menu.minui_dir, game.name, menu.slot);
+	snprintf(menu.bmp_path, sizeof(menu.bmp_path), "%s/%s.%d.bmp", menu.minui_dir, game.name, menu.slot);
+	snprintf(menu.txt_path, sizeof(menu.txt_path), "%s/%s.%d.txt", menu.minui_dir, game.name, menu.slot);
 	
 	menu.save_exists = exists(save_path);
 	menu.preview_exists = menu.save_exists && exists(menu.bmp_path);
@@ -1629,7 +1629,7 @@ void Menu_screenshot(void) {
 	mkdir(SDCARD_PATH "/Screenshots", 0755);
 
 	char png_path[256];
-	sprintf(png_path, SDCARD_PATH "/Screenshots/%s.%s.png", rom_name, buffer);
+	snprintf(png_path, sizeof(png_path), SDCARD_PATH "/Screenshots/%s.%s.png", rom_name, buffer);
 	int cw, ch;
 	unsigned char* pixels = GFX_GL_screenCapture(&cw, &ch);
 	SaveImageArgs* args = malloc(sizeof(SaveImageArgs));
@@ -1693,8 +1693,8 @@ void Menu_loadState(void) {
 			getFile(menu.txt_path, slot_disc_name, 256);
 
 			char slot_disc_path[256];
-			if (slot_disc_name[0]=='/') strcpy(slot_disc_path, slot_disc_name);
-			else sprintf(slot_disc_path, "%s%s", menu.base_path, slot_disc_name);
+			if (slot_disc_name[0]=='/') snprintf(slot_disc_path, sizeof(slot_disc_path), "%s", slot_disc_name);
+			else snprintf(slot_disc_path, sizeof(slot_disc_path), "%s%s", menu.base_path, slot_disc_name);
 
 			char* disc_path = menu.disc_paths[menu.disc];
 			if (!exactMatch(slot_disc_path, disc_path)) {
@@ -1771,7 +1771,7 @@ void Menu_loop(void) {
 	char disc_name[16];
 	if (menu.total_discs) {
 		rom_disc = menu.disc;
-		sprintf(disc_name, "Disc %i", menu.disc+1);
+		snprintf(disc_name, sizeof(disc_name), "Disc %i", menu.disc+1);
 	}
 		
 	int selected = 0; // resets every launch
@@ -1808,7 +1808,7 @@ void Menu_loop(void) {
 				menu.disc -= 1;
 				if (menu.disc<0) menu.disc += menu.total_discs;
 				dirty = 1;
-				sprintf(disc_name, "Disc %i", menu.disc+1);
+				snprintf(disc_name, sizeof(disc_name), "Disc %i", menu.disc+1);
 			}
 			else if (selected==ITEM_SAVE || selected==ITEM_LOAD) {
 				menu.slot -= 1;
@@ -1821,7 +1821,7 @@ void Menu_loop(void) {
 				menu.disc += 1;
 				if (menu.disc==menu.total_discs) menu.disc -= menu.total_discs;
 				dirty = 1;
-				sprintf(disc_name, "Disc %i", menu.disc+1);
+				snprintf(disc_name, sizeof(disc_name), "Disc %i", menu.disc+1);
 			}
 			else if (selected==ITEM_SAVE || selected==ITEM_LOAD) {
 				menu.slot += 1;

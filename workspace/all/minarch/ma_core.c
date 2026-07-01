@@ -11,8 +11,8 @@
 #include "ma_core.h"
 
 
-void Core_getName(char* in_name, char* out_name) {
-	strcpy(out_name, basename(in_name));
+void Core_getName(char* in_name, char* out_name, size_t out_size) {
+	snprintf(out_name, out_size, "%s", basename(in_name));
 	char* tmp = strrchr(out_name, '_');
 	tmp[0] = '\0';
 }
@@ -61,24 +61,24 @@ void Core_open(const char* core_path, const char* tag_name) {
 
 	LOG_info("Block Extract: %d\n", info.block_extract);
 
-	Core_getName((char*)core_path, (char*)core.name);
-	sprintf((char*)core.version, "%s (%s)", info.library_name, info.library_version);
-	strcpy((char*)core.tag, tag_name);
-	strcpy((char*)core.extensions, info.valid_extensions);
+	Core_getName((char*)core_path, (char*)core.name, sizeof(core.name));
+	snprintf((char*)core.version, sizeof(core.version), "%s (%s)", info.library_name, info.library_version);
+	snprintf((char*)core.tag, sizeof(core.tag), "%s", tag_name);
+	snprintf((char*)core.extensions, sizeof(core.extensions), "%s", info.valid_extensions);
 	
 	core.need_fullpath = info.need_fullpath;
 	
 	LOG_info("core: %s version: %s tag: %s (valid_extensions: %s need_fullpath: %i)\n", core.name, core.version, core.tag, info.valid_extensions, info.need_fullpath);
 	
-	sprintf((char*)core.config_dir, USERDATA_PATH "/%s-%s", core.tag, core.name);
-	sprintf((char*)core.states_dir, SHARED_USERDATA_PATH "/%s-%s", core.tag, core.name);
-	sprintf((char*)core.saves_dir, SDCARD_PATH "/Saves/%s", core.tag);
-	sprintf((char*)core.bios_dir, SDCARD_PATH "/Bios/%s", core.tag);
-	sprintf((char*)core.cheats_dir, SDCARD_PATH "/Cheats/%s", core.tag);
-	sprintf((char*)core.overlays_dir, SDCARD_PATH "/Overlays/%s", core.tag);
+	snprintf((char*)core.config_dir, sizeof(core.config_dir), USERDATA_PATH "/%s-%s", core.tag, core.name);
+	snprintf((char*)core.states_dir, sizeof(core.states_dir), SHARED_USERDATA_PATH "/%s-%s", core.tag, core.name);
+	snprintf((char*)core.saves_dir, sizeof(core.saves_dir), SDCARD_PATH "/Saves/%s", core.tag);
+	snprintf((char*)core.bios_dir, sizeof(core.bios_dir), SDCARD_PATH "/Bios/%s", core.tag);
+	snprintf((char*)core.cheats_dir, sizeof(core.cheats_dir), SDCARD_PATH "/Cheats/%s", core.tag);
+	snprintf((char*)core.overlays_dir, sizeof(core.overlays_dir), SDCARD_PATH "/Overlays/%s", core.tag);
 	
 	char cmd[512];
-	sprintf(cmd, "mkdir -p \"%s\"; mkdir -p \"%s\"", core.config_dir, core.states_dir);
+	snprintf(cmd, sizeof(cmd), "mkdir -p \"%s\"; mkdir -p \"%s\"", core.config_dir, core.states_dir);
 	system(cmd);
 
 	set_environment_callback(environment_callback);

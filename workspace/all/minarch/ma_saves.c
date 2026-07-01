@@ -22,7 +22,7 @@ static void formatSavePath(char* work_name, char* filename, const char* suffix) 
 	if (tmp != NULL && strlen(tmp) > 2 && strlen(tmp) <= 5) {
 		tmp[0] = '\0';
 	}
-	sprintf(filename, "%s/%s%s", core.saves_dir, work_name, suffix);
+	snprintf(filename, MAX_PATH, "%s/%s%s", core.saves_dir, work_name, suffix);
 }
 
 static void SRAM_getPath(char* filename) {
@@ -30,15 +30,15 @@ static void SRAM_getPath(char* filename) {
 
 	if (CFG_getSaveFormat() == SAVE_FORMAT_SRM
 	 || CFG_getSaveFormat() == SAVE_FORMAT_SRM_UNCOMPRESSED) {
-		strcpy(work_name, game.alt_name);
+		snprintf(work_name, sizeof(work_name), "%s", game.alt_name);
 		formatSavePath(work_name, filename, ".srm");
 	}
 	else if (CFG_getSaveFormat() == SAVE_FORMAT_GEN) {
-		strcpy(work_name, game.alt_name);
+		snprintf(work_name, sizeof(work_name), "%s", game.alt_name);
 		formatSavePath(work_name, filename, ".sav");
 	}
 	else {
-		sprintf(filename, "%s/%s.sav", core.saves_dir, game.alt_name);
+		snprintf(filename, MAX_PATH, "%s/%s.sav", core.saves_dir, game.alt_name);
 	}
 
 	LOG_info("SRAM_getPath %s\n", filename);
@@ -108,7 +108,7 @@ void SRAM_write(void) {
 ///////////////////////////////////////
 
 static void RTC_getPath(char* filename) {
-	sprintf(filename, "%s/%s.rtc", core.saves_dir, game.alt_name);
+	snprintf(filename, MAX_PATH, "%s/%s.rtc", core.saves_dir, game.alt_name);
 }
 void RTC_read(void) {
 	size_t rtc_size = core.get_memory_size(RETRO_MEMORY_RTC);
@@ -165,34 +165,34 @@ void State_getPath(char* filename) {
 	// should probably be removed at some point in the future.
 	if (CFG_getStateFormat() == STATE_FORMAT_SRM_EXTRADOT
 	 || CFG_getStateFormat() == STATE_FORMAT_SRM_UNCOMRESSED_EXTRADOT) {
-		strcpy(work_name, game.alt_name);
+		snprintf(work_name, sizeof(work_name), "%s", game.alt_name);
 		char* tmp = strrchr(work_name, '.');
 		if (tmp != NULL && strlen(tmp) > 2 && strlen(tmp) <= 5) {
 			tmp[0] = '\0';
 		}
 
 		if(state_slot == AUTO_RESUME_SLOT)
-			sprintf(filename, "%s/%s.state.auto", core.states_dir, work_name);
+			snprintf(filename, MAX_PATH, "%s/%s.state.auto", core.states_dir, work_name);
 		else
-			sprintf(filename, "%s/%s.state.%i", core.states_dir, work_name, state_slot);
+			snprintf(filename, MAX_PATH, "%s/%s.state.%i", core.states_dir, work_name, state_slot);
 	}
 	else if (CFG_getStateFormat() == STATE_FORMAT_SRM
 	 	  || CFG_getStateFormat() == STATE_FORMAT_SRM_UNCOMRESSED) {
-		strcpy(work_name, game.alt_name);
+		snprintf(work_name, sizeof(work_name), "%s", game.alt_name);
 		char* tmp = strrchr(work_name, '.');
 		if (tmp != NULL && strlen(tmp) > 2 && strlen(tmp) <= 5) {
 			tmp[0] = '\0';
 		}
 
 		if(state_slot == AUTO_RESUME_SLOT)
-			sprintf(filename, "%s/%s.state.auto", core.states_dir, work_name);
+			snprintf(filename, MAX_PATH, "%s/%s.state.auto", core.states_dir, work_name);
 		else if(state_slot == 0)
-			sprintf(filename, "%s/%s.state", core.states_dir, work_name);
+			snprintf(filename, MAX_PATH, "%s/%s.state", core.states_dir, work_name);
 		else
-			sprintf(filename, "%s/%s.state%i", core.states_dir, work_name, state_slot);
+			snprintf(filename, MAX_PATH, "%s/%s.state%i", core.states_dir, work_name, state_slot);
 	}
 	else {
-		sprintf(filename, "%s/%s.st%i", core.states_dir, game.alt_name, state_slot);
+		snprintf(filename, MAX_PATH, "%s/%s.st%i", core.states_dir, game.alt_name, state_slot);
 	}
 }
 
