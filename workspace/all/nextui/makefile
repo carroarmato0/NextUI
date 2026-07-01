@@ -25,8 +25,8 @@ INCDIR = -I. -I../common/ -I../../$(PLATFORM)/platform/
 # C and C++ translation units are listed separately. C files compile as C;
 # C++ files compile as C++; everything links through g++ so the two can mix
 # as modules are migrated to C++ incrementally.
-CSOURCE = $(TARGET).c ../common/scaler.c ../common/utils.c ../common/config.c ../common/api.c ../../$(PLATFORM)/platform/platform.c
-CXXSOURCE =
+CSOURCE = ../common/scaler.c ../common/utils.c ../common/config.c ../common/api.c ../../$(PLATFORM)/platform/platform.c
+CXXSOURCE = $(TARGET).cpp
 
 CC  = $(CROSS_COMPILE)gcc
 CXX = $(CROSS_COMPILE)g++
