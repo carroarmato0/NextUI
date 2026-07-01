@@ -15,6 +15,7 @@
 #include <vector>
 #include <unordered_map>
 #include <algorithm>
+#include "core/str.h"
 
 extern "C" {
 #include <msettings.h>
@@ -157,7 +158,7 @@ static void Directory_index(Directory* self) {
 
     Hash* map = NULL;
     char map_path[256];
-    snprintf(map_path, sizeof(map_path), "%s/map.txt", is_collection ? COLLECTIONS_PATH : self->path);
+    core::format(map_path, "%s/map.txt", is_collection ? COLLECTIONS_PATH : self->path);
 
     if (exists(map_path)) {
         FILE* file = fopen(map_path, "r");
@@ -329,7 +330,7 @@ static Recent* Recent_new(char* path, char* alias) {
 	Recent* self = (Recent*)(malloc(sizeof(Recent)));
 
 	char sd_path[256]; // only need to get emu name
-	snprintf(sd_path, sizeof(sd_path), "%s%s", SDCARD_PATH, path);
+	core::format(sd_path, "%s%s", SDCARD_PATH, path);
 
 	char emu_name[256];
 	getEmuName(sd_path, emu_name);
@@ -420,17 +421,17 @@ static Entry* entryFromPakName(char* pak_name)
 {
 	char pak_path[256];
 	// Check in Tools
-	snprintf(pak_path, sizeof(pak_path), "%s/Tools/%s/%s.pak", SDCARD_PATH, PLATFORM, pak_name);
+	core::format(pak_path, "%s/Tools/%s/%s.pak", SDCARD_PATH, PLATFORM, pak_name);
 	if(exists(pak_path))
 		return Entry_newNamed(pak_path, ENTRY_PAK, pak_name);
 
 	// Check in Emus
-	snprintf(pak_path, sizeof(pak_path), "%s/Emus/%s.pak", PAKS_PATH, pak_name);
+	core::format(pak_path, "%s/Emus/%s.pak", PAKS_PATH, pak_name);
 	if(exists(pak_path))
 		return Entry_newNamed(pak_path, ENTRY_PAK, pak_name);
 
 	// Check in platform Emus
-	snprintf(pak_path, sizeof(pak_path), "%s/Emus/%s/%s.pak", SDCARD_PATH, PLATFORM, pak_name);
+	core::format(pak_path, "%s/Emus/%s/%s.pak", SDCARD_PATH, PLATFORM, pak_name);
 	if(exists(pak_path))
 		return Entry_newNamed(pak_path, ENTRY_PAK, pak_name);
 
@@ -439,10 +440,10 @@ static Entry* entryFromPakName(char* pak_name)
 
 static int hasEmu(char* emu_name) {
 	char pak_path[256];
-	snprintf(pak_path, sizeof(pak_path), "%s/Emus/%s.pak/launch.sh", PAKS_PATH, emu_name);
+	core::format(pak_path, "%s/Emus/%s.pak/launch.sh", PAKS_PATH, emu_name);
 	if (exists(pak_path)) return 1;
 
-	snprintf(pak_path, sizeof(pak_path), "%s/Emus/%s/%s.pak/launch.sh", SDCARD_PATH, PLATFORM, emu_name);
+	core::format(pak_path, "%s/Emus/%s/%s.pak/launch.sh", SDCARD_PATH, PLATFORM, emu_name);
 	return exists(pak_path);
 }
 static int hasCue(char* dir_path, char* cue_path) { // NOTE: dir_path not rom_path
@@ -459,7 +460,7 @@ static int hasM3u(char* rom_path, char* m3u_path) { // NOTE: rom_path not dir_pa
 
 	// path to parent directory
 	char base_path[256];
-	snprintf(base_path, sizeof(base_path), "%s", m3u_path);
+	core::format(base_path, "%s", m3u_path);
 
 	tmp = strrchr(m3u_path, '/');
 	tmp[0] = '\0';
@@ -467,7 +468,7 @@ static int hasM3u(char* rom_path, char* m3u_path) { // NOTE: rom_path not dir_pa
 	// get parent directory name
 	char dir_name[256];
 	tmp = strrchr(m3u_path, '/');
-	snprintf(dir_name, sizeof(dir_name), "%s", tmp);
+	core::format(dir_name, "%s", tmp);
 
 	// dir_name is also our m3u file name
 	tmp = m3u_path + strlen(m3u_path);
@@ -496,7 +497,7 @@ static int hasRecents(void) {
 			recents.push_back(recent);
 
 			char parent_path[256];
-			snprintf(parent_path, sizeof(parent_path), "%s", disc_path);
+			core::format(parent_path, "%s", disc_path);
 			char* tmp = strrchr(parent_path, '/') + 1;
 			tmp[0] = '\0';
 			parent_paths.push_back(strdup(parent_path));
@@ -523,14 +524,14 @@ static int hasRecents(void) {
 			}
 
 			char sd_path[256];
-			snprintf(sd_path, sizeof(sd_path), "%s%s", SDCARD_PATH, path);
+			core::format(sd_path, "%s%s", SDCARD_PATH, path);
 			if (exists(sd_path)) {
 				if ((int)recents.size()<MAX_RECENTS) {
 					// this logic replaces an existing disc from a multi-disc game with the last used
 					char m3u_path[256];
 					if (hasM3u(sd_path, m3u_path)) { // TODO: this might tank launch speed
 						char parent_path[256];
-						snprintf(parent_path, sizeof(parent_path), "%s", path);
+						core::format(parent_path, "%s", path);
 						char* tmp = strrchr(parent_path, '/') + 1;
 						tmp[0] = '\0';
 
@@ -588,7 +589,7 @@ static int hasRoms(char* dir_name) {
 	if (!hasEmu(emu_name)) return has;
 
 	// check for at least one non-hidden file (we're going to assume it's a rom)
-	snprintf(rom_path, sizeof(rom_path), "%s/%s/", ROMS_PATH, dir_name);
+	core::format(rom_path, "%s/%s/", ROMS_PATH, dir_name);
 	DIR *dh = opendir(rom_path);
 	if (dh!=NULL) {
 		struct dirent *dp;
@@ -605,7 +606,7 @@ static int hasRoms(char* dir_name) {
 
 static int hasTools(void) {
 	char tools_path[256];
-    snprintf(tools_path, sizeof(tools_path), "%s/Tools/%s", SDCARD_PATH, PLATFORM);
+    core::format(tools_path, "%s/Tools/%s", SDCARD_PATH, PLATFORM);
 	return exists(tools_path);
 }
 
@@ -616,7 +617,7 @@ static std::vector<Entry*> getRoms()
     if (dh) {
         struct dirent* dp;
         char full_path[256];
-        snprintf(full_path, sizeof(full_path), "%s/", ROMS_PATH);
+        core::format(full_path, "%s/", ROMS_PATH);
         char* tmp = full_path + strlen(full_path);
 
         std::vector<Entry*> emus;
@@ -644,7 +645,7 @@ static std::vector<Entry*> getRoms()
 
 	// Handle mapping logic
     char map_path[256];
-    snprintf(map_path, sizeof(map_path), "%s/map.txt", ROMS_PATH);
+    core::format(map_path, "%s/map.txt", ROMS_PATH);
     if ((int)entries.size() > 0 && exists(map_path)) {
         FILE* file = fopen(map_path, "r");
         if (file) {
@@ -691,7 +692,7 @@ static std::vector<Entry*> getCollections(void)
 	if (dh) {
 		struct dirent* dp;
 		char full_path[256];
-		snprintf(full_path, sizeof(full_path), "%s/", COLLECTIONS_PATH);
+		core::format(full_path, "%s/", COLLECTIONS_PATH);
 		char* tmp = full_path + strlen(full_path);
 
 		std::vector<Entry*> collections;
@@ -723,7 +724,7 @@ static std::vector<Entry*> getQuickEntries(void) {
 	// Add tools if applicable
     if (hasTools() && !simple_mode) {
 		char tools_path[256];
-		snprintf(tools_path, sizeof(tools_path), "%s/Tools/%s", SDCARD_PATH, PLATFORM);
+		core::format(tools_path, "%s/Tools/%s", SDCARD_PATH, PLATFORM);
         entries.push_back(Entry_new(tools_path, ENTRY_DIR));
     }
 
@@ -778,7 +779,7 @@ static std::vector<Entry*> getRoot(void) {
 	// Add tools if applicable
     if (hasTools() && CFG_getShowTools() && !simple_mode) {
 		char tools_path[256];
-		snprintf(tools_path, sizeof(tools_path), "%s/Tools/%s", SDCARD_PATH, PLATFORM);
+		core::format(tools_path, "%s/Tools/%s", SDCARD_PATH, PLATFORM);
         root.push_back(Entry_new(tools_path, ENTRY_DIR));
     }
 
@@ -791,7 +792,7 @@ static Entry* entryFromRecent(Recent* recent)
 		return {};
 
 	char sd_path[256];
-	snprintf(sd_path, sizeof(sd_path), "%s%s", SDCARD_PATH, recent->path);
+	core::format(sd_path, "%s%s", SDCARD_PATH, recent->path);
 	int type = suffixMatch(".pak", sd_path) ? ENTRY_PAK : ENTRY_ROM; // ???
 	Entry* entry = Entry_new(sd_path, type);
 	if (recent->alias) {
@@ -823,7 +824,7 @@ static std::vector<Entry*> getCollection(char* path) {
 			if (strlen(line)==0) continue; // skip empty lines
 
 			char sd_path[256];
-			snprintf(sd_path, sizeof(sd_path), "%s%s", SDCARD_PATH, line);
+			core::format(sd_path, "%s%s", SDCARD_PATH, line);
 			if (exists(sd_path)) {
 				int type = suffixMatch(".pak", sd_path) ? ENTRY_PAK : ENTRY_ROM; // ???
 				entries.push_back(Entry_new(sd_path, type));
@@ -846,7 +847,7 @@ static std::vector<Entry*> getDiscs(char* path){
 	std::vector<Entry*> entries;
 
 	char base_path[256];
-	snprintf(base_path, sizeof(base_path), "%s", path);
+	core::format(base_path, "%s", path);
 	char* tmp = strrchr(base_path, '/') + 1;
 	tmp[0] = '\0';
 
@@ -861,14 +862,14 @@ static std::vector<Entry*> getDiscs(char* path){
 			if (strlen(line)==0) continue; // skip empty lines
 
 			char disc_path[256];
-			snprintf(disc_path, sizeof(disc_path), "%s%s", base_path, line);
+			core::format(disc_path, "%s%s", base_path, line);
 
 			if (exists(disc_path)) {
 				disc += 1;
 				Entry* entry = Entry_new(disc_path, ENTRY_ROM);
 				free(entry->name);
 				char name[16];
-				snprintf(name, sizeof(name), "Disc %i", disc);
+				core::format(name, "Disc %i", disc);
 				entry->name = strdup(name);
 				entries.push_back(entry);
 			}
@@ -881,7 +882,7 @@ static int getFirstDisc(char* m3u_path, char* disc_path) { // based on getDiscs(
 	int found = 0;
 
 	char base_path[256];
-	snprintf(base_path, sizeof(base_path), "%s", m3u_path);
+	core::format(base_path, "%s", m3u_path);
 	char* tmp = strrchr(base_path, '/') + 1;
 	tmp[0] = '\0';
 
@@ -909,7 +910,7 @@ static void addEntries(std::vector<Entry*>& entries, char* path) {
 		struct dirent *dp;
 		char* tmp;
 		char full_path[256];
-		snprintf(full_path, sizeof(full_path), "%s/", path);
+		core::format(full_path, "%s/", path);
 		tmp = full_path + strlen(full_path);
 		while((dp = readdir(dh)) != NULL) {
 			if (hide(dp->d_name)) continue;
@@ -942,7 +943,7 @@ static void addEntries(std::vector<Entry*>& entries, char* path) {
 static int isConsoleDir(char* path) {
 	char* tmp;
 	char parent_dir[256];
-	snprintf(parent_dir, sizeof(parent_dir), "%s", path);
+	core::format(parent_dir, "%s", path);
 	tmp = strrchr(parent_dir, '/');
 	tmp[0] = '\0';
 
@@ -954,7 +955,7 @@ static std::vector<Entry*> getEntries(char* path){
 
 	if (isConsoleDir(path)) { // top-level console folder, might collate
 		char collated_path[256];
-		snprintf(collated_path, sizeof(collated_path), "%s", path);
+		core::format(collated_path, "%s", path);
 		char* tmp = strrchr(collated_path, '(');
 		// 1 because we want to keep the opening parenthesis to avoid collating "Game Boy Color" and "Game Boy Advance" into "Game Boy"
 		// but conditional so we can continue to support a bare tag name as a folder name
@@ -964,7 +965,7 @@ static std::vector<Entry*> getEntries(char* path){
 		if (dh!=NULL) {
 			struct dirent *dp;
 			char full_path[256];
-			snprintf(full_path, sizeof(full_path), "%s/", ROMS_PATH);
+			core::format(full_path, "%s/", ROMS_PATH);
 			tmp = full_path + strlen(full_path);
 			// while loop so we can collate paths, see above
 			while((dp = readdir(dh)) != NULL) {
@@ -1034,7 +1035,7 @@ static void readyResumePath(char* rom_path, int type) {
 	can_resume = 0;
 	has_preview = 0;
 	char path[256];
-	snprintf(path, sizeof(path), "%s", rom_path);
+	core::format(path, "%s", rom_path);
 
 	if (!prefixMatch(ROMS_PATH, path)) return;
 
@@ -1045,14 +1046,14 @@ static void readyResumePath(char* rom_path, int type) {
 			snprintf(tmp, sizeof(auto_path) - (tmp - auto_path), "%s", "m3u"); // replace with m3u
 			if (!exists(auto_path)) return; // no m3u
 		}
-		snprintf(path, sizeof(path), "%s", auto_path); // cue or m3u if one exists
+		core::format(path, "%s", auto_path); // cue or m3u if one exists
 	}
 
 	if (!suffixMatch(".m3u", path)) {
 		char m3u_path[256];
 		if (hasM3u(path, m3u_path)) {
 			// change path to m3u path
-			snprintf(path, sizeof(path), "%s", m3u_path);
+			core::format(path, "%s", m3u_path);
 		}
 	}
 
@@ -1061,9 +1062,9 @@ static void readyResumePath(char* rom_path, int type) {
 
 	char rom_file[256];
 	tmp = strrchr(path, '/') + 1;
-	snprintf(rom_file, sizeof(rom_file), "%s", tmp);
+	core::format(rom_file, "%s", tmp);
 
-	snprintf(slot_path, sizeof(slot_path), "%s/.minui/%s/%s.txt", SHARED_USERDATA_PATH, emu_name, rom_file); // /.userdata/.minui/<EMU>/<romname>.ext.txt
+	core::format(slot_path, "%s/.minui/%s/%s.txt", SHARED_USERDATA_PATH, emu_name, rom_file); // /.userdata/.minui/<EMU>/<romname>.ext.txt
 	can_resume = exists(slot_path);
 
 	// slot_path contains a single integer representing the last used slot
@@ -1071,7 +1072,7 @@ static void readyResumePath(char* rom_path, int type) {
 		char slot[16];
 		getFile(slot_path, slot, 16);
 		int s = atoi(slot);
-		snprintf(preview_path, sizeof(preview_path), "%s/.minui/%s/%s.%0d.bmp", SHARED_USERDATA_PATH, emu_name, rom_file, s); // /.userdata/.minui/<EMU>/<romname>.ext.<n>.bmp
+		core::format(preview_path, "%s/.minui/%s/%s.%0d.bmp", SHARED_USERDATA_PATH, emu_name, rom_file, s); // /.userdata/.minui/<EMU>/<romname>.ext.<n>.bmp
 		has_preview = exists(preview_path);
 	}
 }
@@ -1094,7 +1095,7 @@ static int autoResume(void) {
 
 	// make sure rom still exists
 	char sd_path[256];
-	snprintf(sd_path, sizeof(sd_path), "%s%s", SDCARD_PATH, path);
+	core::format(sd_path, "%s%s", SDCARD_PATH, path);
 	if (!exists(sd_path)) return 0;
 
 	// make sure emu still exists
@@ -1109,12 +1110,12 @@ static int autoResume(void) {
 	// putFile(LAST_PATH, FAUX_RECENT_PATH); // saveLast() will crash here because top is NULL
 
 	char act[256];
-	snprintf(act, sizeof(act), "gametimectl.elf start '%s'", escapeSingleQuotes(sd_path));
+	core::format(act, "gametimectl.elf start '%s'", escapeSingleQuotes(sd_path));
 	system(act);
 
 	char cmd[256];
 	// dont escape sd_path again because it was already escaped for gametimectl and function modifies input str aswell
-	snprintf(cmd, sizeof(cmd), "'%s' '%s'", escapeSingleQuotes(emu_path), sd_path);
+	core::format(cmd, "'%s' '%s'", escapeSingleQuotes(emu_path), sd_path);
 	putInt(RESUME_SLOT_PATH, AUTO_RESUME_SLOT);
 	queueNext(cmd);
 	return 1;
@@ -1129,20 +1130,20 @@ static void openPak(char* path) {
 	saveLast(path);
 
 	char cmd[256];
-	snprintf(cmd, sizeof(cmd), "'%s/launch.sh'", escapeSingleQuotes(path));
+	core::format(cmd, "'%s/launch.sh'", escapeSingleQuotes(path));
 	queueNext(cmd);
 }
 static void openRom(char* path, char* last) {
 	LOG_info("openRom(%s,%s)\n", path, last);
 
 	char sd_path[256];
-	snprintf(sd_path, sizeof(sd_path), "%s", path);
+	core::format(sd_path, "%s", path);
 
 	char m3u_path[256];
 	int has_m3u = hasM3u(sd_path, m3u_path);
 
 	char recent_path[256];
-	snprintf(recent_path, sizeof(recent_path), "%s", has_m3u ? m3u_path : sd_path);
+	core::format(recent_path, "%s", has_m3u ? m3u_path : sd_path);
 
 	if (has_m3u && suffixMatch(".m3u", sd_path)) {
 		getFirstDisc(m3u_path, sd_path);
@@ -1159,19 +1160,19 @@ static void openRom(char* path, char* last) {
 
 		if (has_m3u) {
 			char rom_file[256];
-			snprintf(rom_file, sizeof(rom_file), "%s", strrchr(m3u_path, '/') + 1);
+			core::format(rom_file, "%s", strrchr(m3u_path, '/') + 1);
 
 			// get disc for state
 			char disc_path_path[256];
-			snprintf(disc_path_path, sizeof(disc_path_path), "%s/.minui/%s/%s.%s.txt", SHARED_USERDATA_PATH, emu_name, rom_file, slot); // /.userdata/arm-480/.minui/<EMU>/<romname>.ext.0.txt
+			core::format(disc_path_path, "%s/.minui/%s/%s.%s.txt", SHARED_USERDATA_PATH, emu_name, rom_file, slot); // /.userdata/arm-480/.minui/<EMU>/<romname>.ext.0.txt
 
 			if (exists(disc_path_path)) {
 				// switch to disc path
 				char disc_path[256];
 				getFile(disc_path_path, disc_path, 256);
-				if (disc_path[0]=='/') snprintf(sd_path, sizeof(sd_path), "%s", disc_path); // absolute
+				if (disc_path[0]=='/') core::format(sd_path, "%s", disc_path); // absolute
 				else { // relative
-					snprintf(sd_path, sizeof(sd_path), "%s", m3u_path);
+					core::format(sd_path, "%s", m3u_path);
 					char* tmp = strrchr(sd_path, '/') + 1;
 					snprintf(tmp, sizeof(sd_path) - (tmp - sd_path), "%s", disc_path);
 				}
@@ -1188,11 +1189,11 @@ static void openRom(char* path, char* last) {
 	addRecent(recent_path, recent_alias); // yiiikes
 	saveLast(last==NULL ? sd_path : last);
 	char act[256];
-	snprintf(act, sizeof(act), "gametimectl.elf start '%s'", escapeSingleQuotes(sd_path));
+	core::format(act, "gametimectl.elf start '%s'", escapeSingleQuotes(sd_path));
 	system(act);
 	char cmd[256];
 	// dont escape sd_path again because it was already escaped for gametimectl and function modifies input str aswell
-	snprintf(cmd, sizeof(cmd), "'%s' '%s'", escapeSingleQuotes(emu_path), sd_path);
+	core::format(cmd, "'%s' '%s'", escapeSingleQuotes(emu_path), sd_path);
 	queueNext(cmd);
 }
 
@@ -1254,7 +1255,7 @@ std::vector<Directory*> pathToStack(const char* path) {
 	if (exactMatch(path, SDCARD_PATH)) return array;
 
 	char temp_path[PATH_MAX];
-	snprintf(temp_path, sizeof(temp_path), "%s", SDCARD_PATH);
+	core::format(temp_path, "%s", SDCARD_PATH);
 	size_t current_len = strlen(SDCARD_PATH);
 
 	const char* cursor = path + current_len;
@@ -1278,7 +1279,7 @@ std::vector<Directory*> pathToStack(const char* path) {
 
 		// Append segment
 		if (current_len + segment_len >= PATH_MAX) break;
-		strncat(temp_path, segment, sizeof(temp_path)-strlen(temp_path)-1);
+		core::append(temp_path, segment);
 		current_len += segment_len;
 
 		if (strcmp(segment, PLATFORM) == 0) {
@@ -1317,7 +1318,7 @@ static void openDirectory(char* path, int auto_launch) {
 	}
 
 	char m3u_path[256];
-	snprintf(m3u_path, sizeof(m3u_path), "%s", auto_path);
+	core::format(m3u_path, "%s", auto_path);
 	char* tmp = strrchr(m3u_path, '.') + 1; // extension
 	snprintf(tmp, sizeof(m3u_path) - (tmp - m3u_path), "%s", "m3u"); // replace with m3u
 	if (exists(m3u_path) && auto_launch) {
@@ -1356,7 +1357,7 @@ static void openDirectory(char* path, int auto_launch) {
 	else {
 		// keep a copy of path, which might be a reference into stack which is about to be freed
 		char temp_path[256];
-		snprintf(temp_path, sizeof(temp_path), "%s", path);
+		core::format(temp_path, "%s", path);
 
 		// construct a fresh stack by walking upwards until SDCARD_ROOT
 		DirectoryArray_free(stack);
@@ -1412,10 +1413,10 @@ static void Entry_open(Entry* self) {
 			char filename[256];
 
 			tmp = strrchr(self->path, '/');
-			if (tmp) snprintf(filename, sizeof(filename), "%s", tmp+1);
+			if (tmp) core::format(filename, "%s", tmp+1);
 
 			char last_path[256];
-			snprintf(last_path, sizeof(last_path), "%s/%s", top->path, filename);
+			core::format(last_path, "%s/%s", top->path, filename);
 			last = last_path;
 		}
 		openRom(self->path, last);
@@ -1451,12 +1452,12 @@ static void loadLast(void) { // call after loading root directory
 	getFile(LAST_PATH, last_path, 256);
 
 	char full_path[256];
-	snprintf(full_path, sizeof(full_path), "%s", last_path);
+	core::format(full_path, "%s", last_path);
 
 	char* tmp;
 	char filename[256];
 	tmp = strrchr(last_path, '/');
-	if (tmp) snprintf(filename, sizeof(filename), "%s", tmp);
+	if (tmp) core::format(filename, "%s", tmp);
 
 	std::vector<char*> last;
 	while (!exactMatch(last_path, SDCARD_PATH)) {
@@ -1473,7 +1474,7 @@ static void loadLast(void) { // call after loading root directory
 			char collated_path[256];
 			collated_path[0] = '\0';
 			if (suffixMatch(")", path) && isConsoleDir(path)) {
-				snprintf(collated_path, sizeof(collated_path), "%s", path);
+				core::format(collated_path, "%s", path);
 				tmp = strrchr(collated_path, '(');
 				if (tmp) tmp[1] = '\0'; // 1 because we want to keep the opening parenthesis to avoid collating "Game Boy Color" and "Game Boy Advance" into "Game Boy"
 			}
@@ -2570,10 +2571,10 @@ int main (int argc, char *argv[]) {
 				char newBgPath[MAX_PATH];
 				char fallbackBgPath[MAX_PATH];
 
-				snprintf(newBgPath, sizeof(newBgPath), SDCARD_PATH "/.media/quick_%s%s.png", current->name, 
+				core::format(newBgPath, SDCARD_PATH "/.media/quick_%s%s.png", current->name, 
 					!strcmp(current->name,"Wifi") && !CFG_getWifi() || 							// wifi or wifi_off, based on state
 					!strcmp(current->name,"Bluetooth") && !CFG_getBluetooth() ? "_off" : "");	// bluetooth or bluetooth_off, based on state
-				snprintf(fallbackBgPath, sizeof(fallbackBgPath), SDCARD_PATH "/.media/quick.png");
+				core::format(fallbackBgPath, SDCARD_PATH "/.media/quick.png");
 
 				// background
 				if(!exists(newBgPath))
@@ -2637,7 +2638,7 @@ int main (int argc, char *argv[]) {
 						GFX_blitRectColor(ASSET_STATE_BG, screen, &item_rect, item_color);
 
 						char icon_path[MAX_PATH];
-						snprintf(icon_path, sizeof(icon_path), SDCARD_PATH "/.system/res/%s@%ix.png", item->name, FIXED_SCALE);
+						core::format(icon_path, SDCARD_PATH "/.system/res/%s@%ix.png", item->name, FIXED_SCALE);
 						SDL_Surface* bmp = IMG_Load(icon_path);
 						if(bmp) {
 							SDL_Surface* converted = SDL_ConvertSurfaceFormat(bmp, screen->format->format, 0);
@@ -2883,7 +2884,7 @@ int main (int argc, char *argv[]) {
 
 				// load folder background
 				char defaultBgPath[512];
-				snprintf(defaultBgPath, sizeof(defaultBgPath), SDCARD_PATH "/bg.png");
+				core::format(defaultBgPath, SDCARD_PATH "/bg.png");
 
 				if(((entry->type == ENTRY_DIR || entry->type == ENTRY_ROM) && CFG_getRomsUseFolderBackground())) {
 					char *newBg = entry->type == ENTRY_DIR ? entry->path:rompath;
@@ -2892,13 +2893,13 @@ int main (int argc, char *argv[]) {
 						char tmppath[512];
 						strncpy(folderBgPath, newBg, sizeof(folderBgPath) - 1);
 						if (entry->type == ENTRY_DIR)
-							snprintf(tmppath, sizeof(tmppath), "%s/.media/bg.png", folderBgPath);
+							core::format(tmppath, "%s/.media/bg.png", folderBgPath);
 						else if (entry->type == ENTRY_ROM)
-							snprintf(tmppath, sizeof(tmppath), "%s/.media/bglist.png", folderBgPath);
+							core::format(tmppath, "%s/.media/bglist.png", folderBgPath);
 						if(!exists(tmppath)) {
 							// Safeguard: If no background is available, still render the text to leave the user a way out
 							list_show_entry_names = true;
-							snprintf(tmppath, sizeof(tmppath), defaultBgPath, folderBgPath);
+							core::format(tmppath, defaultBgPath, folderBgPath);
 						}
 						startLoadFolderBackground(tmppath, onBackgroundLoaded, NULL);
 					}
@@ -2915,7 +2916,7 @@ int main (int argc, char *argv[]) {
 				if (total > 0) {
 					if(CFG_getShowGameArt()) {
 						char thumbpath[1024];
-						snprintf(thumbpath, sizeof(thumbpath), "%s/.media/%s.png", rompath, res_copy);
+						core::format(thumbpath, "%s/.media/%s.png", rompath, res_copy);
 						had_thumb = 0;
 						startLoadThumb(thumbpath, onThumbLoaded, NULL);
 						int max_w = (int)(screen->w - (screen->w * CFG_getGameArtWidth()));
