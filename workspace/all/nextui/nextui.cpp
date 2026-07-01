@@ -2029,29 +2029,64 @@ void enqueueanmimtask(AnimTask* task) {
     SDL_UnlockMutex(animqueueMutex);
 }
 
+// Main-thread pill animation. The pill (the selection highlight) slides from
+// its current position to the target over `frames` frames. This used to run in
+// a worker thread that tweened across frames and handed each position back to
+// the main thread via a callback + condition variable -- an unnecessary and
+// race-prone design for what is just a UI lerp. It is now a plain linear tween
+// advanced once per render frame on the main thread: no worker, no queue, no
+// cross-thread handoff, so the whole class of races that crashed it is gone.
+static struct PillAnim {
+	bool active;
+	int startX, startY, targetX, targetY;
+	int move_w, move_h, targetTextY;
+	int frame, frames;
+} pillAnim = {0};
+
+// Advance the pill tween by one render frame. Call once per main-loop iteration.
+// Reproduces exactly what the old animWorker + animcallback did per frame.
+static void advancePillAnim(void) {
+	if (!pillAnim.active) return;
+	float t = pillAnim.frames > 0 ? (float)pillAnim.frame / pillAnim.frames : 1.0f;
+	if (t > 1.0f) t = 1.0f;
+	pillRect.x = pillAnim.startX + (int)((pillAnim.targetX - pillAnim.startX) * t);
+	pillRect.y = pillAnim.startY + (int)((pillAnim.targetY - pillAnim.startY) * t);
+	pillRect.w = pillAnim.move_w;
+	pillRect.h = pillAnim.move_h;
+	if (pillRect.w > 0 && pillRect.h > 0) {
+		pilltargetY = screen->w; // hide the selected text off-screen mid-slide
+		if (pillAnim.frame >= pillAnim.frames) {
+			pilltargetY = pillAnim.targetY;
+			pilltargetTextY = pillAnim.targetTextY;
+		}
+	}
+	if (pillAnim.frame >= pillAnim.frames) {
+		pillanimdone = true;
+		pillAnim.active = false;
+	}
+	pillAnim.frame++;
+	setNeedDraw(1);
+	setAnimationDraw(1);
+}
+
 void animPill(AnimTask *task) {
-#if NEXTUI_POC_NO_WORKERS
-	// POC: the worker-thread pill animation is disabled. Apply the final pill
-	// position directly (instant, no tween) instead of queueing it for animWorker.
-	// This is what animcallback would have set on the last frame.
-	SDL_LockMutex(animMutex);
-	pillRect.x = task->targetX;
-	pillRect.y = task->targetY;
-	pillRect.w = task->move_w;
-	pillRect.h = task->move_h;
-	pilltargetY = task->targetY;
-	pilltargetTextY = task->targetTextY;
-	pillanimdone = true;
-	SDL_UnlockMutex(animMutex);
+	// Kick off a main-thread tween from the current pill position to the target.
+	pillAnim.startX = task->startX;
+	pillAnim.startY = task->startY;
+	pillAnim.targetX = task->targetX;
+	pillAnim.targetY = task->targetY;
+	pillAnim.move_w = task->move_w;
+	pillAnim.move_h = task->move_h;
+	pillAnim.targetTextY = task->targetTextY;
+	pillAnim.frames = task->frames;
+	pillAnim.frame = 0;
+	pillAnim.active = true;
+	pillanimdone = false;
 	setNeedDraw(1);
 	setAnimationDraw(1);
 	// The caller malloc'd the task and does not use it after this call.
 	if (task->entry_name) free(task->entry_name);
 	free(task);
-#else
-	task->callback = animcallback;
-	enqueueanmimtask(task);
-#endif
 }
 
 void initImageLoaderPool() {
@@ -2239,6 +2274,8 @@ int main (int argc, char *argv[]) {
 		unsigned long now = SDL_GetTicks();
 
 		PAD_poll();
+
+		advancePillAnim(); // step the selection-pill tween on the main thread
 
 		int selected = top->selected;
 		int total = (int)top->entries.size();
@@ -3212,7 +3249,7 @@ int main (int argc, char *argv[]) {
 			}
 			SDL_UnlockMutex(animMutex);
 			if (currentScreen != SCREEN_GAMESWITCHER && currentScreen != SCREEN_QUICKMENU) {
-				if(is_scrolling && pillanimdone && currentAnimQueueSize < 1) {
+				if(is_scrolling && pillanimdone && !pillAnim.active) {
 					int ow = GFX_blitHardwareGroup(screen, show_setting);
 					Entry* entry = top->entries[top->selected];
 					trimSortingMeta(&entry->name);
