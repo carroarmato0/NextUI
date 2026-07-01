@@ -232,7 +232,7 @@ static void Directory_index(Directory* self) {
                     tmp[0] = '\0';
                     char* key = line;
                     char* value = tmp + 1;
-                    Hash_set(map, key, strdup(value)); // Ensure strdup to store value properly
+                    Hash_set(map, key, value); // Hash_set copies into a std::string; no strdup needed
                 }
             }
             fclose(file);
@@ -728,7 +728,7 @@ static Array* getRoms()
                     *tmp = '\0';
                     char* key = line;
                     char* value = tmp + 1;
-                    Hash_set(map, key, strdup(value)); // Ensure strdup
+                    Hash_set(map, key, value); // Hash_set copies into a std::string; no strdup needed
                 }
             }
             fclose(file);
