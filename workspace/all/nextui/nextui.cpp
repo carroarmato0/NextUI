@@ -2070,18 +2070,32 @@ static void advancePillAnim(void) {
 }
 
 void animPill(AnimTask *task) {
-	// Kick off a main-thread tween from the current pill position to the target.
-	pillAnim.startX = task->startX;
-	pillAnim.startY = task->startY;
-	pillAnim.targetX = task->targetX;
-	pillAnim.targetY = task->targetY;
-	pillAnim.move_w = task->move_w;
-	pillAnim.move_h = task->move_h;
-	pillAnim.targetTextY = task->targetTextY;
-	pillAnim.frames = task->frames;
-	pillAnim.frame = 0;
-	pillAnim.active = true;
-	pillanimdone = false;
+	if (task->frames <= 1) {
+		// No animation requested (e.g. a directory change): jump straight to the
+		// target, no tween. Rendering the start position for a frame first would
+		// flash the pill at the previous directory's row before snapping over.
+		pillRect.x = task->targetX;
+		pillRect.y = task->targetY;
+		pillRect.w = task->move_w;
+		pillRect.h = task->move_h;
+		pilltargetY = task->targetY;
+		pilltargetTextY = task->targetTextY;
+		pillanimdone = true;
+		pillAnim.active = false;
+	} else {
+		// Kick off a main-thread tween from the current position to the target.
+		pillAnim.startX = task->startX;
+		pillAnim.startY = task->startY;
+		pillAnim.targetX = task->targetX;
+		pillAnim.targetY = task->targetY;
+		pillAnim.move_w = task->move_w;
+		pillAnim.move_h = task->move_h;
+		pillAnim.targetTextY = task->targetTextY;
+		pillAnim.frames = task->frames;
+		pillAnim.frame = 0;
+		pillAnim.active = true;
+		pillanimdone = false;
+	}
 	setNeedDraw(1);
 	setAnimationDraw(1);
 	// The caller malloc'd the task and does not use it after this call.
