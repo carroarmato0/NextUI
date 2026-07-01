@@ -1882,21 +1882,33 @@ void onBackgroundLoaded(SDL_Surface* surface) {
 	SDL_UnlockMutex(bgMutex);
 }
 
-void startLoadThumb(const char* thumbpath, BackgroundLoadedCallback callback, void* userData) {
-#if NEXTUI_POC_NO_WORKERS
-    // POC: async thumbnail loading disabled. thumbbmp stays NULL; the thumbnail
-    // draw is guarded by `if(thumbbmp && thumbchanged)` and falls through to clear.
-    (void)thumbpath; (void)callback; (void)userData;
-    return;
-#else
-    LoadBackgroundTask* task = (LoadBackgroundTask*)(malloc(sizeof(LoadBackgroundTask)));
-    if (!task) return;
+// --- Thumbnail (box-art) loader ----------------------------------------------
+// Same shape as the folder-background loader: its own std::thread and its own
+// capacity-1 queue (separate from backgrounds so a thumbnail request and a
+// background request never evict each other). onThumbLoaded does the CPU-side
+// scaling maths and rounded-corner pass on the decoded surface under thumbMutex,
+// so it's fine to run from the worker.
+static core::ThreadSafeQueue<ImageLoadRequest> thumbLoadQueue(1);
+static std::thread thumbLoadWorkerThread;
 
-    snprintf(task->imagePath, sizeof(task->imagePath), "%s", thumbpath);
-    task->callback = callback;
-    task->userData = userData;
-    enqueueThumbTask(task);
-#endif
+static void thumbLoadWorkerLoop(void) {
+	ImageLoadRequest req;
+	while (thumbLoadQueue.pop(req)) {
+		SDL_Surface* surface = NULL;
+		if (access(req.path.c_str(), F_OK) == 0) {
+			SDL_Surface* raw = IMG_Load(req.path.c_str());
+			if (raw) {
+				surface = SDL_ConvertSurfaceFormat(raw, screen->format->format, 0);
+				SDL_FreeSurface(raw);
+			}
+		}
+		req.callback(surface); // onThumbLoaded, hands off under thumbMutex
+	}
+}
+
+void startLoadThumb(const char* thumbpath, BackgroundLoadedCallback callback, void* userData) {
+	(void)userData;
+	thumbLoadQueue.push({ thumbpath, callback });
 }
 void onThumbLoaded(SDL_Surface* surface) {
 	SDL_LockMutex(thumbMutex);
@@ -2141,13 +2153,15 @@ void initImageLoaderPool() {
 	fontMutex = SDL_CreateMutex();
 	flipCond = SDL_CreateCond();
 
-    // Folder backgrounds run again, on the std::thread + ThreadSafeQueue loader.
+    // Folder backgrounds and thumbnails each run on their own std::thread +
+    // ThreadSafeQueue loader.
     bgLoadWorkerThread = std::thread(bgLoadWorkerLoop);
+    thumbLoadWorkerThread = std::thread(thumbLoadWorkerLoop);
 
 #if NEXTUI_POC_NO_WORKERS
-    // The legacy SDL bg worker is superseded by bgLoadWorkerThread above. The
-    // pill animation is now main-thread. Thumbnails are still on the old
-    // disabled path (next to migrate to the queue), so their thread stays NULL.
+    // The legacy SDL bg/thumb workers are superseded by the std::thread loaders
+    // above, and the pill animation is now main-thread. Nothing left to spawn on
+    // the old path.
     bgLoadThread = NULL;
     thumbLoadThread = NULL;
     animWorkerThread = NULL;
@@ -2159,10 +2173,12 @@ void initImageLoaderPool() {
 }
 
 void cleanupImageLoaderPool() {
-	// Stop the folder-background loader: the queue's shutdown() unblocks its
-	// pop() and the worker returns, then we join it.
+	// Stop the image loaders: each queue's shutdown() unblocks its worker's
+	// pop() so it returns, then we join.
 	bgLoadQueue.shutdown();
 	if (bgLoadWorkerThread.joinable()) bgLoadWorkerThread.join();
+	thumbLoadQueue.shutdown();
+	if (thumbLoadWorkerThread.joinable()) thumbLoadWorkerThread.join();
 
 	// Signal all worker threads to exit (atomic set for thread safety)
 	SDL_AtomicSet(&workerThreadsShutdown, 1);
