@@ -195,18 +195,10 @@ static int getIndexChar(char* str) {
 }
 
 static void getUniqueName(Entry* entry, char* out_name) {
-	char* filename = strrchr(entry->path, '/')+1;
+	// out_name is a char[256] at every caller
 	char emu_tag[256];
 	getEmuName(entry->path, emu_tag);
-
-	char *tmp;
-	strcpy(out_name, entry->name);
-	tmp = out_name + strlen(out_name);
-	strcpy(tmp, " (");
-	tmp = out_name + strlen(out_name);
-	strcpy(tmp, emu_tag);
-	tmp = out_name + strlen(out_name);
-	strcpy(tmp, ")");
+	snprintf(out_name, 256, "%s (%s)", entry->name, emu_tag);
 }
 
 static void Directory_index(Directory* self) {
@@ -215,7 +207,7 @@ static void Directory_index(Directory* self) {
 
     Hash* map = NULL;
     char map_path[256];
-    sprintf(map_path, "%s/map.txt", is_collection ? COLLECTIONS_PATH : self->path);
+    snprintf(map_path, sizeof(map_path), "%s/map.txt", is_collection ? COLLECTIONS_PATH : self->path);
 
     if (exists(map_path)) {
         FILE* file = fopen(map_path, "r");
@@ -390,7 +382,7 @@ static Recent* Recent_new(char* path, char* alias) {
 	Recent* self = (Recent*)(malloc(sizeof(Recent)));
 
 	char sd_path[256]; // only need to get emu name
-	sprintf(sd_path, "%s%s", SDCARD_PATH, path);
+	snprintf(sd_path, sizeof(sd_path), "%s%s", SDCARD_PATH, path);
 
 	char emu_name[256];
 	getEmuName(sd_path, emu_name);
@@ -485,17 +477,17 @@ static Entry* entryFromPakName(char* pak_name)
 {
 	char pak_path[256];
 	// Check in Tools
-	sprintf(pak_path, "%s/Tools/%s/%s.pak", SDCARD_PATH, PLATFORM, pak_name);
+	snprintf(pak_path, sizeof(pak_path), "%s/Tools/%s/%s.pak", SDCARD_PATH, PLATFORM, pak_name);
 	if(exists(pak_path))
 		return Entry_newNamed(pak_path, ENTRY_PAK, pak_name);
 
 	// Check in Emus
-	sprintf(pak_path, "%s/Emus/%s.pak", PAKS_PATH, pak_name);
+	snprintf(pak_path, sizeof(pak_path), "%s/Emus/%s.pak", PAKS_PATH, pak_name);
 	if(exists(pak_path))
 		return Entry_newNamed(pak_path, ENTRY_PAK, pak_name);
 
 	// Check in platform Emus
-	sprintf(pak_path, "%s/Emus/%s/%s.pak", SDCARD_PATH, PLATFORM, pak_name);
+	snprintf(pak_path, sizeof(pak_path), "%s/Emus/%s/%s.pak", SDCARD_PATH, PLATFORM, pak_name);
 	if(exists(pak_path))
 		return Entry_newNamed(pak_path, ENTRY_PAK, pak_name);
 
@@ -504,10 +496,10 @@ static Entry* entryFromPakName(char* pak_name)
 
 static int hasEmu(char* emu_name) {
 	char pak_path[256];
-	sprintf(pak_path, "%s/Emus/%s.pak/launch.sh", PAKS_PATH, emu_name);
+	snprintf(pak_path, sizeof(pak_path), "%s/Emus/%s.pak/launch.sh", PAKS_PATH, emu_name);
 	if (exists(pak_path)) return 1;
 
-	sprintf(pak_path, "%s/Emus/%s/%s.pak/launch.sh", SDCARD_PATH, PLATFORM, emu_name);
+	snprintf(pak_path, sizeof(pak_path), "%s/Emus/%s/%s.pak/launch.sh", SDCARD_PATH, PLATFORM, emu_name);
 	return exists(pak_path);
 }
 static int hasCue(char* dir_path, char* cue_path) { // NOTE: dir_path not rom_path
@@ -524,7 +516,7 @@ static int hasM3u(char* rom_path, char* m3u_path) { // NOTE: rom_path not dir_pa
 
 	// path to parent directory
 	char base_path[256];
-	strcpy(base_path, m3u_path);
+	snprintf(base_path, sizeof(base_path), "%s", m3u_path);
 
 	tmp = strrchr(m3u_path, '/');
 	tmp[0] = '\0';
@@ -589,7 +581,7 @@ static int hasRecents(void) {
 			}
 
 			char sd_path[256];
-			sprintf(sd_path, "%s%s", SDCARD_PATH, path);
+			snprintf(sd_path, sizeof(sd_path), "%s%s", SDCARD_PATH, path);
 			if (exists(sd_path)) {
 				if (recents->count()<MAX_RECENTS) {
 					// this logic replaces an existing disc from a multi-disc game with the last used
@@ -858,7 +850,7 @@ static Entry* entryFromRecent(Recent* recent)
 		return NULL;
 
 	char sd_path[256];
-	sprintf(sd_path, "%s%s", SDCARD_PATH, recent->path);
+	snprintf(sd_path, sizeof(sd_path), "%s%s", SDCARD_PATH, recent->path);
 	int type = suffixMatch(".pak", sd_path) ? ENTRY_PAK : ENTRY_ROM; // ???
 	Entry* entry = Entry_new(sd_path, type);
 	if (recent->alias) {
@@ -890,7 +882,7 @@ static Array* getCollection(char* path) {
 			if (strlen(line)==0) continue; // skip empty lines
 
 			char sd_path[256];
-			sprintf(sd_path, "%s%s", SDCARD_PATH, line);
+			snprintf(sd_path, sizeof(sd_path), "%s%s", SDCARD_PATH, line);
 			if (exists(sd_path)) {
 				int type = suffixMatch(".pak", sd_path) ? ENTRY_PAK : ENTRY_ROM; // ???
 				Array_push(entries, Entry_new(sd_path, type));
@@ -913,7 +905,7 @@ static Array* getDiscs(char* path){
 	Array* entries = Array_new();
 
 	char base_path[256];
-	strcpy(base_path, path);
+	snprintf(base_path, sizeof(base_path), "%s", path);
 	char* tmp = strrchr(base_path, '/') + 1;
 	tmp[0] = '\0';
 
@@ -948,7 +940,7 @@ static int getFirstDisc(char* m3u_path, char* disc_path) { // based on getDiscs(
 	int found = 0;
 
 	char base_path[256];
-	strcpy(base_path, m3u_path);
+	snprintf(base_path, sizeof(base_path), "%s", m3u_path);
 	char* tmp = strrchr(base_path, '/') + 1;
 	tmp[0] = '\0';
 
@@ -976,7 +968,7 @@ static void addEntries(Array* entries, char* path) {
 		struct dirent *dp;
 		char* tmp;
 		char full_path[256];
-		sprintf(full_path, "%s/", path);
+		snprintf(full_path, sizeof(full_path), "%s/", path);
 		tmp = full_path + strlen(full_path);
 		while((dp = readdir(dh)) != NULL) {
 			if (hide(dp->d_name)) continue;
@@ -1009,7 +1001,7 @@ static void addEntries(Array* entries, char* path) {
 static int isConsoleDir(char* path) {
 	char* tmp;
 	char parent_dir[256];
-	strcpy(parent_dir, path);
+	snprintf(parent_dir, sizeof(parent_dir), "%s", path);
 	tmp = strrchr(parent_dir, '/');
 	tmp[0] = '\0';
 
@@ -1021,7 +1013,7 @@ static Array* getEntries(char* path){
 
 	if (isConsoleDir(path)) { // top-level console folder, might collate
 		char collated_path[256];
-		strcpy(collated_path, path);
+		snprintf(collated_path, sizeof(collated_path), "%s", path);
 		char* tmp = strrchr(collated_path, '(');
 		// 1 because we want to keep the opening parenthesis to avoid collating "Game Boy Color" and "Game Boy Advance" into "Game Boy"
 		// but conditional so we can continue to support a bare tag name as a folder name
@@ -1031,7 +1023,7 @@ static Array* getEntries(char* path){
 		if (dh!=NULL) {
 			struct dirent *dp;
 			char full_path[256];
-			sprintf(full_path, "%s/", ROMS_PATH);
+			snprintf(full_path, sizeof(full_path), "%s/", ROMS_PATH);
 			tmp = full_path + strlen(full_path);
 			// while loop so we can collate paths, see above
 			while((dp = readdir(dh)) != NULL) {
@@ -1128,9 +1120,9 @@ static void readyResumePath(char* rom_path, int type) {
 
 	char rom_file[256];
 	tmp = strrchr(path, '/') + 1;
-	strcpy(rom_file, tmp);
+	snprintf(rom_file, sizeof(rom_file), "%s", tmp);
 
-	sprintf(slot_path, "%s/.minui/%s/%s.txt", SHARED_USERDATA_PATH, emu_name, rom_file); // /.userdata/.minui/<EMU>/<romname>.ext.txt
+	snprintf(slot_path, sizeof(slot_path), "%s/.minui/%s/%s.txt", SHARED_USERDATA_PATH, emu_name, rom_file); // /.userdata/.minui/<EMU>/<romname>.ext.txt
 	can_resume = exists(slot_path);
 
 	// slot_path contains a single integer representing the last used slot
@@ -1138,7 +1130,7 @@ static void readyResumePath(char* rom_path, int type) {
 		char slot[16];
 		getFile(slot_path, slot, 16);
 		int s = atoi(slot);
-		sprintf(preview_path, "%s/.minui/%s/%s.%0d.bmp", SHARED_USERDATA_PATH, emu_name, rom_file, s); // /.userdata/.minui/<EMU>/<romname>.ext.<n>.bmp
+		snprintf(preview_path, sizeof(preview_path), "%s/.minui/%s/%s.%0d.bmp", SHARED_USERDATA_PATH, emu_name, rom_file, s); // /.userdata/.minui/<EMU>/<romname>.ext.<n>.bmp
 		has_preview = exists(preview_path);
 	}
 }
@@ -1161,7 +1153,7 @@ static int autoResume(void) {
 
 	// make sure rom still exists
 	char sd_path[256];
-	sprintf(sd_path, "%s%s", SDCARD_PATH, path);
+	snprintf(sd_path, sizeof(sd_path), "%s%s", SDCARD_PATH, path);
 	if (!exists(sd_path)) return 0;
 
 	// make sure emu still exists
@@ -1176,7 +1168,7 @@ static int autoResume(void) {
 	// putFile(LAST_PATH, FAUX_RECENT_PATH); // saveLast() will crash here because top is NULL
 
 	char act[256];
-	sprintf(act, "gametimectl.elf start '%s'", escapeSingleQuotes(sd_path));
+	snprintf(act, sizeof(act), "gametimectl.elf start '%s'", escapeSingleQuotes(sd_path));
 	system(act);
 
 	char cmd[256];
@@ -1203,13 +1195,13 @@ static void openRom(char* path, char* last) {
 	LOG_info("openRom(%s,%s)\n", path, last);
 
 	char sd_path[256];
-	strcpy(sd_path, path);
+	snprintf(sd_path, sizeof(sd_path), "%s", path);
 
 	char m3u_path[256];
 	int has_m3u = hasM3u(sd_path, m3u_path);
 
 	char recent_path[256];
-	strcpy(recent_path, has_m3u ? m3u_path : sd_path);
+	snprintf(recent_path, sizeof(recent_path), "%s", has_m3u ? m3u_path : sd_path);
 
 	if (has_m3u && suffixMatch(".m3u", sd_path)) {
 		getFirstDisc(m3u_path, sd_path);
@@ -1226,19 +1218,19 @@ static void openRom(char* path, char* last) {
 
 		if (has_m3u) {
 			char rom_file[256];
-			strcpy(rom_file, strrchr(m3u_path, '/') + 1);
+			snprintf(rom_file, sizeof(rom_file), "%s", strrchr(m3u_path, '/') + 1);
 
 			// get disc for state
 			char disc_path_path[256];
-			sprintf(disc_path_path, "%s/.minui/%s/%s.%s.txt", SHARED_USERDATA_PATH, emu_name, rom_file, slot); // /.userdata/arm-480/.minui/<EMU>/<romname>.ext.0.txt
+			snprintf(disc_path_path, sizeof(disc_path_path), "%s/.minui/%s/%s.%s.txt", SHARED_USERDATA_PATH, emu_name, rom_file, slot); // /.userdata/arm-480/.minui/<EMU>/<romname>.ext.0.txt
 
 			if (exists(disc_path_path)) {
 				// switch to disc path
 				char disc_path[256];
 				getFile(disc_path_path, disc_path, 256);
-				if (disc_path[0]=='/') strcpy(sd_path, disc_path); // absolute
+				if (disc_path[0]=='/') snprintf(sd_path, sizeof(sd_path), "%s", disc_path); // absolute
 				else { // relative
-					strcpy(sd_path, m3u_path);
+					snprintf(sd_path, sizeof(sd_path), "%s", m3u_path);
 					char* tmp = strrchr(sd_path, '/') + 1;
 					strcpy(tmp, disc_path);
 				}
@@ -1255,7 +1247,7 @@ static void openRom(char* path, char* last) {
 	addRecent(recent_path, recent_alias); // yiiikes
 	saveLast(last==NULL ? sd_path : last);
 	char act[256];
-	sprintf(act, "gametimectl.elf start '%s'", escapeSingleQuotes(sd_path));
+	snprintf(act, sizeof(act), "gametimectl.elf start '%s'", escapeSingleQuotes(sd_path));
 	system(act);
 	char cmd[256];
 	// dont escape sd_path again because it was already escaped for gametimectl and function modifies input str aswell
@@ -1321,7 +1313,7 @@ Array* pathToStack(const char* path) {
 	if (exactMatch(path, SDCARD_PATH)) return array;
 
 	char temp_path[PATH_MAX];
-	strcpy(temp_path, SDCARD_PATH);
+	snprintf(temp_path, sizeof(temp_path), "%s", SDCARD_PATH);
 	size_t current_len = strlen(SDCARD_PATH);
 
 	const char* cursor = path + current_len;
@@ -1423,7 +1415,7 @@ static void openDirectory(char* path, int auto_launch) {
 	else {
 		// keep a copy of path, which might be a reference into stack which is about to be freed
 		char temp_path[256];
-		strcpy(temp_path, path);
+		snprintf(temp_path, sizeof(temp_path), "%s", path);
 
 		// construct a fresh stack by walking upwards until SDCARD_ROOT
 		DirectoryArray_free(stack);
@@ -1482,7 +1474,7 @@ static void Entry_open(Entry* self) {
 			if (tmp) strcpy(filename, tmp+1);
 
 			char last_path[256];
-			sprintf(last_path, "%s/%s", top->path, filename);
+			snprintf(last_path, sizeof(last_path), "%s/%s", top->path, filename);
 			last = last_path;
 		}
 		openRom(self->path, last);
@@ -1518,7 +1510,7 @@ static void loadLast(void) { // call after loading root directory
 	getFile(LAST_PATH, last_path, 256);
 
 	char full_path[256];
-	strcpy(full_path, last_path);
+	snprintf(full_path, sizeof(full_path), "%s", last_path);
 
 	char* tmp;
 	char filename[256];
@@ -1539,7 +1531,7 @@ static void loadLast(void) { // call after loading root directory
 			char collated_path[256];
 			collated_path[0] = '\0';
 			if (suffixMatch(")", path) && isConsoleDir(path)) {
-				strcpy(collated_path, path);
+				snprintf(collated_path, sizeof(collated_path), "%s", path);
 				tmp = strrchr(collated_path, '(');
 				if (tmp) tmp[1] = '\0'; // 1 because we want to keep the opening parenthesis to avoid collating "Game Boy Color" and "Game Boy Advance" into "Game Boy"
 			}
@@ -2639,10 +2631,10 @@ int main (int argc, char *argv[]) {
 				char newBgPath[MAX_PATH];
 				char fallbackBgPath[MAX_PATH];
 
-				sprintf(newBgPath, SDCARD_PATH "/.media/quick_%s%s.png", current->name, 
+				snprintf(newBgPath, sizeof(newBgPath), SDCARD_PATH "/.media/quick_%s%s.png", current->name, 
 					!strcmp(current->name,"Wifi") && !CFG_getWifi() || 							// wifi or wifi_off, based on state
 					!strcmp(current->name,"Bluetooth") && !CFG_getBluetooth() ? "_off" : "");	// bluetooth or bluetooth_off, based on state
-				sprintf(fallbackBgPath, SDCARD_PATH "/.media/quick.png");
+				snprintf(fallbackBgPath, sizeof(fallbackBgPath), SDCARD_PATH "/.media/quick.png");
 
 				// background
 				if(!exists(newBgPath))
@@ -2706,7 +2698,7 @@ int main (int argc, char *argv[]) {
 						GFX_blitRectColor(ASSET_STATE_BG, screen, &item_rect, item_color);
 
 						char icon_path[MAX_PATH];
-						sprintf(icon_path, SDCARD_PATH "/.system/res/%s@%ix.png", item->name, FIXED_SCALE);
+						snprintf(icon_path, sizeof(icon_path), SDCARD_PATH "/.system/res/%s@%ix.png", item->name, FIXED_SCALE);
 						SDL_Surface* bmp = IMG_Load(icon_path);
 						if(bmp) {
 							SDL_Surface* converted = SDL_ConvertSurfaceFormat(bmp, screen->format->format, 0);
