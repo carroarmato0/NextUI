@@ -17,9 +17,9 @@ void Game_open(char* path) {
 	int skipzip = 0;
 	memset(&game, 0, sizeof(game));
 
-	strcpy((char*)game.path, path);
-	strcpy((char*)game.name, strrchr(path, '/')+1);
-	strcpy((char*)game.alt_name, game.name); // default it
+	snprintf(game.path, sizeof(game.path), "%s", path);
+	snprintf(game.name, sizeof(game.name), "%s", strrchr(path, '/')+1);
+	snprintf(game.alt_name, sizeof(game.alt_name), "%s", game.name); // default it
 
 	// check first if the rom already is alive in tmp folder if so skip unzipping shit
 	char tmpfldr[255];
@@ -30,11 +30,11 @@ void Game_open(char* path) {
 		struct stat st;
 		if (stat(tmppath, &st) == 0 && st.st_size > 0) {
 			printf("File exists skipping unzipping and setting game.tmp_path: %s\n", tmppath);
-			strcpy((char*)game.tmp_path, tmppath);
+			snprintf(game.tmp_path, sizeof(game.tmp_path), "%s", tmppath);
 			skipzip = 1;
 			// Update the game name to the extracted file name instead of the zip name
 			if (CFG_getUseExtractedFileName())
-				strcpy((char*)game.alt_name, strrchr(game.tmp_path, '/')+1);
+				snprintf(game.alt_name, sizeof(game.alt_name), "%s", strrchr(game.tmp_path, '/')+1);
 		} else {
 			printf("File exists but is empty or inaccessible, will re-extract: %s\n", tmppath);
 		}
@@ -51,7 +51,7 @@ void Game_open(char* path) {
 		char* ext;
 		char exts[128];
 		char* extensions[32];
-		strcpy(exts,core.extensions);
+		snprintf(exts, sizeof(exts), "%s", core.extensions);
 		while ((ext=strtok(i?NULL:exts,"|"))) {
 			extensions[i++] = ext;
 			if (!strcmp("zip", ext)) {
@@ -70,7 +70,7 @@ void Game_open(char* path) {
 				return;
 			// Update the game name to the extracted file name instead of the zip name
 			if (CFG_getUseExtractedFileName())
-				strcpy((char*)game.alt_name, strrchr(game.tmp_path, '/')+1);
+				snprintf(game.alt_name, sizeof(game.alt_name), "%s", strrchr(game.tmp_path, '/')+1);
 		}
 		else {
 			LOG_info("Core can handle zip file: %s\n", game.path);
@@ -109,28 +109,28 @@ void Game_open(char* path) {
 	char base_path[256];
 	char dir_name[256];
 
-	strcpy(m3u_path, game.path);
+	snprintf(m3u_path, sizeof(m3u_path), "%s", game.path);
 	tmp = strrchr(m3u_path, '/') + 1;
 	tmp[0] = '\0';
 
-	strcpy(base_path, m3u_path);
+	snprintf(base_path, sizeof(base_path), "%s", m3u_path);
 
 	tmp = strrchr(m3u_path, '/');
 	tmp[0] = '\0';
 
 	tmp = strrchr(m3u_path, '/');
-	strcpy(dir_name, tmp);
+	snprintf(dir_name, sizeof(dir_name), "%s", tmp);
 
 	tmp = m3u_path + strlen(m3u_path);
-	strcpy(tmp, dir_name);
+	snprintf(tmp, sizeof(m3u_path) - (tmp - m3u_path), "%s", dir_name);
 
 	tmp = m3u_path + strlen(m3u_path);
-	strcpy(tmp, ".m3u");
+	snprintf(tmp, sizeof(m3u_path) - (tmp - m3u_path), "%s", ".m3u");
 
 	if (exists(m3u_path)) {
-		strcpy(game.m3u_path, m3u_path);
-		strcpy((char*)game.name, strrchr(m3u_path, '/')+1);
-		strcpy((char*)game.alt_name, game.name); // default it
+		snprintf(game.m3u_path, sizeof(game.m3u_path), "%s", m3u_path);
+		snprintf(game.name, sizeof(game.name), "%s", strrchr(m3u_path, '/')+1);
+		snprintf(game.alt_name, sizeof(game.alt_name), "%s", game.name); // default it
 	}
 
 	game.is_open = 1;
@@ -186,12 +186,12 @@ int extract_zip(char** extensions)
 		if (zip_stat_index(za, i, 0, &sb) == 0) {
 			len = strlen(sb.name);
 			if (sb.name[len - 1] == '/') {
-				sprintf(game.tmp_path, "%s/%s", tmp_dirname, basename((char*)sb.name));
+				snprintf(game.tmp_path, sizeof(game.tmp_path), "%s/%s", tmp_dirname, basename((char*)sb.name));
 			} else {
 				int found = 0;
 				char extension[8];
 				for (int e=0; extensions[e]; e++) {
-					sprintf(extension, ".%s", extensions[e]);
+					snprintf(extension, sizeof(extension), ".%s", extensions[e]);
 					if (suffixMatch(extension, sb.name)) {
 						found = 1;
 						break;
@@ -199,7 +199,7 @@ int extract_zip(char** extensions)
 				}
 				if (!found) continue;
 
-				sprintf(game.tmp_path, "%s/%s", tmp_dirname, basename((char*)sb.name));
+				snprintf(game.tmp_path, sizeof(game.tmp_path), "%s/%s", tmp_dirname, basename((char*)sb.name));
 
 				// Check if file already exists and has the correct size
 				struct stat st;
