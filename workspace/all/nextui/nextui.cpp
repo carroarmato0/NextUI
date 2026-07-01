@@ -504,13 +504,13 @@ static int hasEmu(char* emu_name) {
 }
 static int hasCue(char* dir_path, char* cue_path) { // NOTE: dir_path not rom_path
 	char* tmp = strrchr(dir_path, '/') + 1; // folder name
-	sprintf(cue_path, "%s/%s.cue", dir_path, tmp);
+	snprintf(cue_path, 256, "%s/%s.cue", dir_path, tmp); // cue_path is a char[256] at both callers
 	return exists(cue_path);
 }
 static int hasM3u(char* rom_path, char* m3u_path) { // NOTE: rom_path not dir_path
 	char* tmp;
 
-	strcpy(m3u_path, rom_path);
+	snprintf(m3u_path, 256, "%s", rom_path); // m3u_path is a char[256] at both callers
 	tmp = strrchr(m3u_path, '/') + 1;
 	tmp[0] = '\0';
 
@@ -524,15 +524,15 @@ static int hasM3u(char* rom_path, char* m3u_path) { // NOTE: rom_path not dir_pa
 	// get parent directory name
 	char dir_name[256];
 	tmp = strrchr(m3u_path, '/');
-	strcpy(dir_name, tmp);
+	snprintf(dir_name, sizeof(dir_name), "%s", tmp);
 
 	// dir_name is also our m3u file name
 	tmp = m3u_path + strlen(m3u_path);
-	strcpy(tmp, dir_name);
+	snprintf(tmp, 256 - (tmp - m3u_path), "%s", dir_name);
 
 	// add extension
 	tmp = m3u_path + strlen(m3u_path);
-	strcpy(tmp, ".m3u");
+	snprintf(tmp, 256 - (tmp - m3u_path), "%s", ".m3u");
 
 	return exists(m3u_path);
 }
@@ -554,7 +554,7 @@ static int hasRecents(void) {
 			Array_push(recents, recent);
 
 			char parent_path[256];
-			strcpy(parent_path, disc_path);
+			snprintf(parent_path, sizeof(parent_path), "%s", disc_path);
 			char* tmp = strrchr(parent_path, '/') + 1;
 			tmp[0] = '\0';
 			Array_push(parent_paths, strdup(parent_path));
@@ -588,7 +588,7 @@ static int hasRecents(void) {
 					char m3u_path[256];
 					if (hasM3u(sd_path, m3u_path)) { // TODO: this might tank launch speed
 						char parent_path[256];
-						strcpy(parent_path, path);
+						snprintf(parent_path, sizeof(parent_path), "%s", path);
 						char* tmp = strrchr(parent_path, '/') + 1;
 						tmp[0] = '\0';
 
@@ -646,7 +646,7 @@ static int hasRoms(char* dir_name) {
 	if (!hasEmu(emu_name)) return has;
 
 	// check for at least one non-hidden file (we're going to assume it's a rom)
-	sprintf(rom_path, "%s/%s/", ROMS_PATH, dir_name);
+	snprintf(rom_path, sizeof(rom_path), "%s/%s/", ROMS_PATH, dir_name);
 	DIR *dh = opendir(rom_path);
 	if (dh!=NULL) {
 		struct dirent *dp;
@@ -681,7 +681,7 @@ static Array* getRoms()
         while ((dp = readdir(dh)) != NULL) {
             if (hide(dp->d_name)) continue;
             if (hasRoms(dp->d_name)) {
-                strcpy(tmp, dp->d_name);
+                snprintf(tmp, sizeof(full_path) - (tmp - full_path), "%s", dp->d_name);
                 Array_push(emus, Entry_new(full_path, ENTRY_DIR));
             }
         }
@@ -756,7 +756,7 @@ static Array* getCollections(void)
 		Array* collections = Array_new();
 		while ((dp = readdir(dh)) != NULL) {
 			if (hide(dp->d_name)) continue;
-			strcpy(tmp, dp->d_name);
+			snprintf(tmp, sizeof(full_path) - (tmp - full_path), "%s", dp->d_name);
 			Array_push(collections, Entry_new(full_path, ENTRY_DIR)); // Collections are fake directories
 		}
 		closedir(dh); // Close immediately after use
@@ -920,14 +920,14 @@ static Array* getDiscs(char* path){
 			if (strlen(line)==0) continue; // skip empty lines
 
 			char disc_path[256];
-			sprintf(disc_path, "%s%s", base_path, line);
+			snprintf(disc_path, sizeof(disc_path), "%s%s", base_path, line);
 
 			if (exists(disc_path)) {
 				disc += 1;
 				Entry* entry = Entry_new(disc_path, ENTRY_ROM);
 				free(entry->name);
 				char name[16];
-				sprintf(name, "Disc %i", disc);
+				snprintf(name, sizeof(name), "Disc %i", disc);
 				entry->name = strdup(name);
 				Array_push(entries, entry);
 			}
@@ -952,7 +952,7 @@ static int getFirstDisc(char* m3u_path, char* disc_path) { // based on getDiscs(
 			trimTrailingNewlines(line);
 			if (strlen(line)==0) continue; // skip empty lines
 
-			sprintf(disc_path, "%s%s", base_path, line);
+			snprintf(disc_path, 256, "%s%s", base_path, line); // disc_path is a char[256] at both callers
 
 			if (exists(disc_path)) found = 1;
 			break;
@@ -972,7 +972,7 @@ static void addEntries(Array* entries, char* path) {
 		tmp = full_path + strlen(full_path);
 		while((dp = readdir(dh)) != NULL) {
 			if (hide(dp->d_name)) continue;
-			strcpy(tmp, dp->d_name);
+			snprintf(tmp, sizeof(full_path) - (tmp - full_path), "%s", dp->d_name);
 			int is_dir = dp->d_type==DT_DIR;
 			int type;
 			if (is_dir) {
@@ -1029,7 +1029,7 @@ static Array* getEntries(char* path){
 			while((dp = readdir(dh)) != NULL) {
 				if (hide(dp->d_name)) continue;
 				if (dp->d_type!=DT_DIR) continue;
-				strcpy(tmp, dp->d_name);
+				snprintf(tmp, sizeof(full_path) - (tmp - full_path), "%s", dp->d_name);
 
 				if (!prefixMatch(collated_path, full_path)) continue;
 				addEntries(entries, full_path);
@@ -1093,7 +1093,7 @@ static void readyResumePath(char* rom_path, int type) {
 	can_resume = 0;
 	has_preview = 0;
 	char path[256];
-	strcpy(path, rom_path);
+	snprintf(path, sizeof(path), "%s", rom_path);
 
 	if (!prefixMatch(ROMS_PATH, path)) return;
 
@@ -1101,17 +1101,17 @@ static void readyResumePath(char* rom_path, int type) {
 	if (type==ENTRY_DIR) {
 		if (!hasCue(path, auto_path)) { // no cue?
 			tmp = strrchr(auto_path, '.') + 1; // extension
-			strcpy(tmp, "m3u"); // replace with m3u
+			snprintf(tmp, sizeof(auto_path) - (tmp - auto_path), "%s", "m3u"); // replace with m3u
 			if (!exists(auto_path)) return; // no m3u
 		}
-		strcpy(path, auto_path); // cue or m3u if one exists
+		snprintf(path, sizeof(path), "%s", auto_path); // cue or m3u if one exists
 	}
 
 	if (!suffixMatch(".m3u", path)) {
 		char m3u_path[256];
 		if (hasM3u(path, m3u_path)) {
 			// change path to m3u path
-			strcpy(path, m3u_path);
+			snprintf(path, sizeof(path), "%s", m3u_path);
 		}
 	}
 
@@ -1173,7 +1173,7 @@ static int autoResume(void) {
 
 	char cmd[256];
 	// dont escape sd_path again because it was already escaped for gametimectl and function modifies input str aswell
-	sprintf(cmd, "'%s' '%s'", escapeSingleQuotes(emu_path), sd_path);
+	snprintf(cmd, sizeof(cmd), "'%s' '%s'", escapeSingleQuotes(emu_path), sd_path);
 	putInt(RESUME_SLOT_PATH, AUTO_RESUME_SLOT);
 	queueNext(cmd);
 	return 1;
@@ -1188,7 +1188,7 @@ static void openPak(char* path) {
 	saveLast(path);
 
 	char cmd[256];
-	sprintf(cmd, "'%s/launch.sh'", escapeSingleQuotes(path));
+	snprintf(cmd, sizeof(cmd), "'%s/launch.sh'", escapeSingleQuotes(path));
 	queueNext(cmd);
 }
 static void openRom(char* path, char* last) {
@@ -1232,7 +1232,7 @@ static void openRom(char* path, char* last) {
 				else { // relative
 					snprintf(sd_path, sizeof(sd_path), "%s", m3u_path);
 					char* tmp = strrchr(sd_path, '/') + 1;
-					strcpy(tmp, disc_path);
+					snprintf(tmp, sizeof(sd_path) - (tmp - sd_path), "%s", disc_path);
 				}
 			}
 		}
@@ -1251,7 +1251,7 @@ static void openRom(char* path, char* last) {
 	system(act);
 	char cmd[256];
 	// dont escape sd_path again because it was already escaped for gametimectl and function modifies input str aswell
-	sprintf(cmd, "'%s' '%s'", escapeSingleQuotes(emu_path), sd_path);
+	snprintf(cmd, sizeof(cmd), "'%s' '%s'", escapeSingleQuotes(emu_path), sd_path);
 	queueNext(cmd);
 }
 
@@ -1337,7 +1337,7 @@ Array* pathToStack(const char* path) {
 
 		// Append segment
 		if (current_len + segment_len >= PATH_MAX) break;
-		strcat(temp_path, segment);
+		strncat(temp_path, segment, sizeof(temp_path)-strlen(temp_path)-1);
 		current_len += segment_len;
 
 		if (strcmp(segment, PLATFORM) == 0) {
@@ -1376,9 +1376,9 @@ static void openDirectory(char* path, int auto_launch) {
 	}
 
 	char m3u_path[256];
-	strcpy(m3u_path, auto_path);
+	snprintf(m3u_path, sizeof(m3u_path), "%s", auto_path);
 	char* tmp = strrchr(m3u_path, '.') + 1; // extension
-	strcpy(tmp, "m3u"); // replace with m3u
+	snprintf(tmp, sizeof(m3u_path) - (tmp - m3u_path), "%s", "m3u"); // replace with m3u
 	if (exists(m3u_path) && auto_launch) {
 		auto_path[0] = '\0';
 		if (getFirstDisc(m3u_path, auto_path)) {
@@ -1471,7 +1471,7 @@ static void Entry_open(Entry* self) {
 			char filename[256];
 
 			tmp = strrchr(self->path, '/');
-			if (tmp) strcpy(filename, tmp+1);
+			if (tmp) snprintf(filename, sizeof(filename), "%s", tmp+1);
 
 			char last_path[256];
 			snprintf(last_path, sizeof(last_path), "%s/%s", top->path, filename);
@@ -1515,7 +1515,7 @@ static void loadLast(void) { // call after loading root directory
 	char* tmp;
 	char filename[256];
 	tmp = strrchr(last_path, '/');
-	if (tmp) strcpy(filename, tmp);
+	if (tmp) snprintf(filename, sizeof(filename), "%s", tmp);
 
 	Array* last = Array_new();
 	while (!exactMatch(last_path, SDCARD_PATH)) {
