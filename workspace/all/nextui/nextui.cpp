@@ -357,14 +357,14 @@ static void Directory_free(Directory* self) {
 	free(self);
 }
 
-static void DirectoryArray_pop(Array* self) {
-	Directory_free(static_cast<Directory*>(Array_pop(self)));
+static void DirectoryArray_pop(std::vector<Directory*>& self) {
+	if (self.empty()) return;
+	Directory_free(self.back());
+	self.pop_back();
 }
-static void DirectoryArray_free(Array* self) {
-	for (int i=0; i<self->count(); i++) {
-		Directory_free(static_cast<Directory*>(self->v[i]));
-	}
-	Array_free(self);
+static void DirectoryArray_free(std::vector<Directory*>& self) {
+	for (Directory* d : self) Directory_free(d);
+	self.clear();
 }
 
 ///////////////////////////////////////
@@ -412,7 +412,7 @@ static void RecentArray_free(std::vector<Recent*>& self) {
 ///////////////////////////////////////
 
 static Directory* top;
-static Array* stack; // DirectoryArray
+static std::vector<Directory*> stack;
 static std::vector<Recent*> recents;
 static Array *quick; // EntryArray
 static Array *quickActions; // EntryArray
@@ -1292,8 +1292,8 @@ static bool isDirectSubdirectory(const Directory* parent, const char* child_path
     return (levels == 1);  // exactly one meaningful level deeper
 }
 
-Array* pathToStack(const char* path) {
-	Array* array = Array_new();
+std::vector<Directory*> pathToStack(const char* path) {
+	std::vector<Directory*> array;
 
 	if (!path || strlen(path) == 0) return array;
 
@@ -1303,7 +1303,7 @@ Array* pathToStack(const char* path) {
 	Directory* root_dir = Directory_new(SDCARD_PATH, 0);
 	root_dir->start = 0;
 	root_dir->end = (root_dir->entries->count() < MAIN_ROW_COUNT) ? root_dir->entries->count() : MAIN_ROW_COUNT;
-	Array_push(array, root_dir);
+	array.push_back(root_dir);
 
 	if (exactMatch(path, SDCARD_PATH)) return array;
 
@@ -1337,23 +1337,23 @@ Array* pathToStack(const char* path) {
 
 		if (strcmp(segment, PLATFORM) == 0) {
 			// Merge with previous directory
-			if (array->count() > 0) {
+			if (array.size() > 0) {
 				// Remove the previous directory
-				Directory* last = (Directory*)array->v[array->count() - 1];
-				Array_pop(array);
+				Directory* last = array.back();
+				array.pop_back();
 				Directory_free(last); // assuming you have a Directory_free
 
 				// Replace with updated one using combined path
 				Directory* merged = Directory_new(temp_path, 0);
 				merged->start = 0;
 				merged->end = (merged->entries->count() < MAIN_ROW_COUNT) ? merged->entries->count() : MAIN_ROW_COUNT;
-				Array_push(array, merged);
+				array.push_back(merged);
 			}
 		} else {
 			Directory* dir = Directory_new(temp_path, 0);
 			dir->start = 0;
 			dir->end = (dir->entries->count() < MAIN_ROW_COUNT) ? dir->entries->count() : MAIN_ROW_COUNT;
-			Array_push(array, dir);
+			array.push_back(dir);
 		}
 
 		if (!next) break;
@@ -1394,7 +1394,7 @@ static void openDirectory(char* path, int auto_launch) {
 		int start = 0;
 		int end = 0;
 		if (top && top->entries->count()>0) {
-			if (restore_depth==stack->count() && top->selected==restore_relative) {
+			if (restore_depth==(int)stack.size() && top->selected==restore_relative) {
 				selected = restore_selected;
 				start = restore_start;
 				end = restore_end;
@@ -1405,7 +1405,7 @@ static void openDirectory(char* path, int auto_launch) {
 		top->start = start;
 		top->end = end ? end : ((top->entries->count()<MAIN_ROW_COUNT) ? top->entries->count() : MAIN_ROW_COUNT);
 
-		Array_push(stack, top);
+		stack.push_back(top);
 	}
 	else {
 		// keep a copy of path, which might be a reference into stack which is about to be freed
@@ -1416,7 +1416,7 @@ static void openDirectory(char* path, int auto_launch) {
 		DirectoryArray_free(stack);
 
 		stack = pathToStack(temp_path);
-		top = static_cast<Directory*>(stack->v[stack->count() - 1]);
+		top = stack[(int)stack.size() - 1];
 	}
 }
 
@@ -1425,8 +1425,8 @@ static void closeDirectory(void) {
 	restore_start = top->start;
 	restore_end = top->end;
 	DirectoryArray_pop(stack);
-	restore_depth = stack->count();
-	top = static_cast<Directory*>(stack->v[stack->count()-1]);
+	restore_depth = (int)stack.size();
+	top = stack[(int)stack.size()-1];
 	restore_relative = top->selected;
 }
 
@@ -1577,7 +1577,6 @@ static void QuickMenu_quit(void) {
 }
 
 static void Menu_init(void) {
-	stack = Array_new(); // array of open Directories
 	openDirectory(SDCARD_PATH, 0);
 	loadLast(); // restore state when available
 
@@ -2580,7 +2579,7 @@ int main (int argc, char *argv[]) {
 
 				if (total>0) readyResume(static_cast<Entry*>(top->entries->v[top->selected]));
 			}
-			else if (PAD_justPressed(BTN_B) && stack->count()>1) {
+			else if (PAD_justPressed(BTN_B) && (int)stack.size()>1) {
 				closeDirectory();
 				animationdirection = SLIDE_RIGHT;
 				total = top->entries->count();
@@ -2933,7 +2932,7 @@ int main (int argc, char *argv[]) {
 				static int lastType = -1;
 
 				// this is only a choice on the root folder
-				list_show_entry_names = stack->count() > 1 || CFG_getShowFolderNamesAtRoot();
+				list_show_entry_names = (int)stack.size() > 1 || CFG_getShowFolderNamesAtRoot();
 
 				// load folder background
 				char defaultBgPath[512];
@@ -2994,12 +2993,12 @@ int main (int argc, char *argv[]) {
 					NULL }, 0, screen, 0);
 
 				if (total==0) {
-					if (stack->count()>1) {
+					if ((int)stack.size()>1) {
 						GFX_blitButtonGroup((char**)(const char*[]){ "B","BACK",  NULL }, 0, screen, 1);
 					}
 				}
 				else {
-					if (stack->count()>1) {
+					if ((int)stack.size()>1) {
 						GFX_blitButtonGroup((char**)(const char*[]){ "B","BACK", "A","OPEN", NULL }, 1, screen, 1);
 					}
 					else {
@@ -3020,7 +3019,7 @@ int main (int argc, char *argv[]) {
 						int available_width = MAX(0,(had_thumb ? ox + SCALE1(BUTTON_MARGIN) : screen->w - SCALE1(BUTTON_MARGIN)) - SCALE1(PADDING * 2));
 						bool row_is_selected = (j == selected_row);
 						bool row_is_top = (i == top->start);
-						bool row_has_moved = (previous_row != selected_row || previous_depth != stack->count());
+						bool row_has_moved = (previous_row != selected_row || previous_depth != (int)stack.size());
 						if (row_is_top && !(had_thumb))
 							available_width -= ow;
 
@@ -3050,7 +3049,7 @@ int main (int argc, char *argv[]) {
 						if (row_is_selected) {
 							is_scrolling = list_show_entry_names && GFX_textShouldScroll(font.large,display_name, max_width - SCALE1(BUTTON_PADDING*2), fontMutex);
 							GFX_resetScrollText();
-							bool should_animate = previous_depth == stack->count();
+							bool should_animate = previous_depth == (int)stack.size();
 							SDL_LockMutex(animMutex);
 							if(globalpill) {
 								SDL_FreeSurface(globalpill);
@@ -3100,7 +3099,7 @@ int main (int argc, char *argv[]) {
 					}
 
 					previous_row = selected_row;
-					previous_depth = stack->count();
+					previous_depth = (int)stack.size();
 				}
 				else {
 					// TODO: for some reason screen's dimensions end up being 0x0 in GFX_blitMessage...
