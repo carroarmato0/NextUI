@@ -103,16 +103,21 @@ typedef struct {
 
 extern PerfProfile perf;
 
-// TODO: do we need that many free externs? This should move
-// to a structure or something.
-extern int currentshaderpass;
-extern int currentshadersrcw;
-extern int currentshadersrch;
-extern int currentshaderdstw;
-extern int currentshaderdsth;
-extern int currentshadertexw;
-extern int currentshadertexh;
-extern int should_rotate;
+// Current render-pass state, shared between the core renderer (api.c),
+// the platform GLES pipeline (generic_video.c) and minarch's video path
+// (ma_video.c). Was eight loose `extern int`s; grouped into one struct so
+// there's a single well-named extern instead of the soup this used to be.
+typedef struct GFX_RenderState {
+	int pass;          // was currentshaderpass
+	int src_w;         // currentshadersrcw
+	int src_h;         // currentshadersrch
+	int dst_w;         // currentshaderdstw
+	int dst_h;         // currentshaderdsth
+	int tex_w;         // currentshadertexw
+	int tex_h;         // currentshadertexh
+	int should_rotate; // was should_rotate
+} GFX_RenderState;
+extern GFX_RenderState gfx_render;
 enum {
 	ASSET_WHITE_PILL,
 	ASSET_BLACK_PILL,

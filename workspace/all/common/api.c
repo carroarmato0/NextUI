@@ -205,15 +205,7 @@ static double current_fps = SCREEN_FPS;
 static int fps_counter = 0;
 PerfProfile perf = {0};
 
-int currentshaderpass = 0;
-int currentshadersrcw = 0;
-int currentshadersrch = 0;
-int currentshaderdstw = 0;
-int currentshaderdsth = 0;
-int currentshadertexw = 0;
-int currentshadertexh = 0;
-
-int should_rotate = 0;
+GFX_RenderState gfx_render = {0};
 
 static pthread_mutex_t perf_cpu_monitor_mutex = PTHREAD_MUTEX_INITIALIZER;
 static int perf_cpu_monitor_enabled = 0;

@@ -1586,7 +1586,7 @@ void setRectToAspectRatio(SDL_Rect* dst_rect) {
         dst_rect->w = w;
         dst_rect->h = h;
     } else if (vid.blit->aspect > 0) {
-        if (should_rotate) {
+        if (gfx_render.should_rotate) {
             h = device_width;
             w = h * vid.blit->aspect;
             if (w > device_height) {
@@ -1608,8 +1608,8 @@ void setRectToAspectRatio(SDL_Rect* dst_rect) {
     } else {
         dst_rect->x = screenx;
         dst_rect->y = screeny;
-        dst_rect->w = should_rotate ? device_height : device_width;
-        dst_rect->h = should_rotate ? device_width : device_height;
+        dst_rect->w = gfx_render.should_rotate ? device_height : device_width;
+        dst_rect->h = gfx_render.should_rotate ? device_width : device_height;
     }
 }
 
@@ -2174,13 +2174,13 @@ void PLAT_GL_Swap() {
         static int shaderinfocount = 0;
         static int shaderinfoscreen = 0;
         if (shaderinfocount > 600 && shaderinfoscreen == i) {
-            currentshaderpass = i + 1;
-            currentshadertexw = shaders[i].texw;
-            currentshadertexh = shaders[i].texh;
-            currentshadersrcw = shaders[i].srcw;
-            currentshadersrch = shaders[i].srch;
-            currentshaderdstw = dst_w;
-            currentshaderdsth = dst_h;
+            gfx_render.pass = i + 1;
+            gfx_render.tex_w = shaders[i].texw;
+            gfx_render.tex_h = shaders[i].texh;
+            gfx_render.src_w = shaders[i].srcw;
+            gfx_render.src_h = shaders[i].srch;
+            gfx_render.dst_w = dst_w;
+            gfx_render.dst_h = dst_h;
             shaderinfocount = 0;
             shaderinfoscreen++;
             if (shaderinfoscreen >= nrofshaders)

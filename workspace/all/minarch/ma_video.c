@@ -725,8 +725,8 @@ static void drawDebugHud(const void* data, unsigned width, unsigned height, size
 		snprintf(debug_text, sizeof(debug_text), "%.0f%%/%ihz/%ic", perf.gpu_usage, perf.gpu_speed, perf.gpu_temp);
 		blitBitmapText(debug_text,x,-y - 28,(uint32_t*)data,pitch / 4, width,height);
 
-		if(currentshaderpass>0) {
-			snprintf(debug_text, sizeof(debug_text), "%i/%ix%i/%ix%i/%ix%i", currentshaderpass, currentshadersrcw,currentshadersrch,currentshadertexw,currentshadertexh,currentshaderdstw,currentshaderdsth);
+		if(gfx_render.pass>0) {
+			snprintf(debug_text, sizeof(debug_text), "%i/%ix%i/%ix%i/%ix%i", gfx_render.pass, gfx_render.src_w,gfx_render.src_h,gfx_render.tex_w,gfx_render.tex_h,gfx_render.dst_w,gfx_render.dst_h);
 			blitBitmapText(debug_text,x,-y - 42,(uint32_t*)data,pitch / 4, width,height);
 		}
 	
