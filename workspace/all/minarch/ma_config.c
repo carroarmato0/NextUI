@@ -300,9 +300,9 @@ char** list_files_in_folder(const char* folderPath, int* fileCount, const char* 
 // CONFIG_WRITE_ALL, CONFIG_WRITE_GAME defined in minarch_internal.h
 static void Config_getPath(char* filename, int override) {
 	char device_tag[64] = {0};
-	if (config.device_tag) sprintf(device_tag,"-%s",config.device_tag);
-	if (override) sprintf(filename, "%s/%s%s.cfg", core.config_dir, game.alt_name, device_tag);
-	else sprintf(filename, "%s/minarch%s.cfg", core.config_dir, device_tag);
+	if (config.device_tag) snprintf(device_tag, sizeof(device_tag), "-%s",config.device_tag);
+	if (override) snprintf(filename, MAX_PATH, "%s/%s%s.cfg", core.config_dir, game.alt_name, device_tag);
+	else snprintf(filename, MAX_PATH, "%s/minarch%s.cfg", core.config_dir, device_tag);
 	LOG_info("Config_getPath %s\n", filename);
 }
 void Config_init(void) {
@@ -361,8 +361,7 @@ void Config_init(void) {
 		LOG_info("\tbind %s (%s) %i:%i\n", button_name, button_id, local_id, retro_id);
 		
 		// TODO: test this without a final line return
-		tmp2 = calloc(strlen(button_name)+1, sizeof(char));
-		strcpy(tmp2, button_name);
+		tmp2 = strdup(button_name);
 		ButtonMapping* button = &core_button_mapping[i++];
 		button->name = tmp2;
 		button->retro = retro_id;
@@ -459,8 +458,8 @@ static void Config_readControlsString(char* cfg) {
 	char* tmp;
 	for (int i=0; config.controls[i].name; i++) {
 		ButtonMapping* mapping = &config.controls[i];
-		sprintf(key, "bind %s", mapping->name);
-		sprintf(value, "NONE");
+		snprintf(key, sizeof(key), "bind %s", mapping->name);
+		snprintf(value, sizeof(value), "NONE");
 		
 		if (!Config_getValue(cfg, key, value, NULL)) continue;
 		if ((tmp = strrchr(value, ':'))) *tmp = '\0'; // this is a binding artifact in default.cfg, ignore
@@ -486,8 +485,8 @@ static void Config_readControlsString(char* cfg) {
 	
 	for (int i=0; config.shortcuts[i].name; i++) {
 		ButtonMapping* mapping = &config.shortcuts[i];
-		sprintf(key, "bind %s", mapping->name);
-		sprintf(value, "NONE");
+		snprintf(key, sizeof(key), "bind %s", mapping->name);
+		snprintf(value, sizeof(value), "NONE");
 
 		if (!Config_getValue(cfg, key, value, NULL)) continue;
 		
@@ -527,7 +526,7 @@ void Config_load(void) {
 	char* system_path = SYSTEM_PATH "/system.cfg";
 	
 	char device_system_path[MAX_PATH] = {0};
-	if (config.device_tag) sprintf(device_system_path, SYSTEM_PATH "/system-%s.cfg", config.device_tag);
+	if (config.device_tag) snprintf(device_system_path, sizeof(device_system_path), SYSTEM_PATH "/system-%s.cfg", config.device_tag);
 	
 	if (config.device_tag && exists(device_system_path)) {
 		LOG_info("usng device_system_path: %s\n", device_system_path);
@@ -541,15 +540,15 @@ void Config_load(void) {
 	char default_path[MAX_PATH];
 	getEmuPath((char *)core.tag, default_path);
 	char* tmp = strrchr(default_path, '/');
-	strcpy(tmp,"/default.cfg");
+	snprintf(tmp, sizeof(default_path) - (tmp - default_path), "%s", "/default.cfg");
 
 	char device_default_path[MAX_PATH] = {0};
 	if (config.device_tag) {
 		getEmuPath((char *)core.tag, device_default_path);
 		tmp = strrchr(device_default_path, '/');
 		char filename[64];
-		sprintf(filename,"/default-%s.cfg", config.device_tag);
-		strcpy(tmp,filename);
+		snprintf(filename, sizeof(filename), "/default-%s.cfg", config.device_tag);
+		snprintf(tmp, sizeof(device_default_path) - (tmp - device_default_path), "%s", filename);
 	}
 	
 	if (config.device_tag && exists(device_default_path)) {
@@ -591,7 +590,7 @@ void Config_readControls(void) {
 }
 void Config_write(int override) {
 	char path[MAX_PATH];
-	// sprintf(path, "%s/%s.cfg", core.config_dir, game.alt_name);
+	// snprintf(path, sizeof(path), "%s/%s.cfg", core.config_dir, game.alt_name);
 	Config_getPath(path, CONFIG_WRITE_GAME);
 	
 	if (!override) {
@@ -655,14 +654,14 @@ void Config_write(int override) {
 void Config_restore(void) {
 	char path[MAX_PATH];
 	if (config.loaded==CONFIG_GAME) {
-		if (config.device_tag) sprintf(path, "%s/%s-%s.cfg", core.config_dir, game.alt_name, config.device_tag);
-		else sprintf(path, "%s/%s.cfg", core.config_dir, game.alt_name);
+		if (config.device_tag) snprintf(path, sizeof(path), "%s/%s-%s.cfg", core.config_dir, game.alt_name, config.device_tag);
+		else snprintf(path, sizeof(path), "%s/%s.cfg", core.config_dir, game.alt_name);
 		unlink(path);
 		LOG_info("deleted game config: %s\n", path);
 	}
 	else if (config.loaded==CONFIG_CONSOLE) {
-		if (config.device_tag) sprintf(path, "%s/minarch-%s.cfg", core.config_dir, config.device_tag);
-		else sprintf(path, "%s/minarch.cfg", core.config_dir);
+		if (config.device_tag) snprintf(path, sizeof(path), "%s/minarch-%s.cfg", core.config_dir, config.device_tag);
+		else snprintf(path, sizeof(path), "%s/minarch.cfg", core.config_dir);
 		unlink(path);
 		LOG_info("deleted console config: %s\n", path);
 	}
@@ -709,7 +708,7 @@ void Config_restore(void) {
 
 void readShadersPreset(int i) {
 	char shaderspath[MAX_PATH] = {0};
-	sprintf(shaderspath, SHADERS_FOLDER "/%s", config.shaders.options[SH_SHADERS_PRESET].values[i]);
+	snprintf(shaderspath, sizeof(shaderspath), SHADERS_FOLDER "/%s", config.shaders.options[SH_SHADERS_PRESET].values[i]);
 	LOG_info("read shaders preset %s\n",shaderspath);
 	if (exists(shaderspath)) {
 		config.shaders_preset = allocFile(shaderspath);
