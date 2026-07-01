@@ -78,17 +78,9 @@ static void Array_yoink(Array* self, Array* other) {
 	Array_free(other); // container only; `self` now owns the entries
 }
 
-static int StringArray_indexOf(Array* self, char* str) {
-	for (int i=0; i<self->count(); i++) {
-		if (exactMatch(static_cast<const char*>(self->v[i]), str)) return i;
-	}
-	return -1;
-}
-static void StringArray_free(Array* self) {
-	for (int i=0; i<self->count(); i++) {
-		free(self->v[i]);
-	}
-	Array_free(self);
+static void StringArray_free(std::vector<char*>& self) {
+	for (char* s : self) free(s);
+	self.clear();
 }
 
 ///////////////////////////////////////
@@ -538,7 +530,7 @@ static int hasRecents(void) {
 	int has = 0;
 	RecentArray_free(recents);
 
-	Array* parent_paths = Array_new();
+	std::vector<char*> parent_paths;
 	if (exists(CHANGE_DISC_PATH)) {
 		char sd_path[256];
 		getFile(CHANGE_DISC_PATH, sd_path, 256);
@@ -552,7 +544,7 @@ static int hasRecents(void) {
 			snprintf(parent_path, sizeof(parent_path), "%s", disc_path);
 			char* tmp = strrchr(parent_path, '/') + 1;
 			tmp[0] = '\0';
-			Array_push(parent_paths, strdup(parent_path));
+			parent_paths.push_back(strdup(parent_path));
 		}
 		unlink(CHANGE_DISC_PATH);
 	}
@@ -588,8 +580,8 @@ static int hasRecents(void) {
 						tmp[0] = '\0';
 
 						int found = 0;
-						for (int i=0; i<parent_paths->count(); i++) {
-							char* path = static_cast<char*>(parent_paths->v[i]);
+						for (int i=0; i<(int)parent_paths.size(); i++) {
+							char* path = parent_paths[i];
 							if (prefixMatch(path, parent_path)) {
 								found = 1;
 								break;
@@ -597,7 +589,7 @@ static int hasRecents(void) {
 						}
 						if (found) continue;
 
-						Array_push(parent_paths, strdup(parent_path));
+						parent_paths.push_back(strdup(parent_path));
 					}
 
 					// LOG_info("path:%s alias:%s\n", path, alias);
@@ -1512,16 +1504,17 @@ static void loadLast(void) { // call after loading root directory
 	tmp = strrchr(last_path, '/');
 	if (tmp) snprintf(filename, sizeof(filename), "%s", tmp);
 
-	Array* last = Array_new();
+	std::vector<char*> last;
 	while (!exactMatch(last_path, SDCARD_PATH)) {
-		Array_push(last, strdup(last_path));
+		last.push_back(strdup(last_path));
 
 		char* slash = strrchr(last_path, '/');
 		last_path[(slash-last_path)] = '\0';
 	}
 
-	while (last->count()>0) {
-		char* path = static_cast<char*>(Array_pop(last));
+	while (!last.empty()) {
+		char* path = last.back();
+		last.pop_back();
 		if (!exactMatch(path, ROMS_PATH)) { // romsDir is effectively root as far as restoring state after a game
 			char collated_path[256];
 			collated_path[0] = '\0';
@@ -1545,7 +1538,7 @@ static void loadLast(void) { // call after loading root directory
 							top->start = top->end - MAIN_ROW_COUNT;
 						}
 					}
-					if (last->count()==0 && !exactMatch(entry->path, FAUX_RECENT_PATH) && !(!exactMatch(entry->path, COLLECTIONS_PATH) && prefixMatch(COLLECTIONS_PATH, entry->path))) break; // don't show contents of auto-launch dirs
+					if (last.empty() && !exactMatch(entry->path, FAUX_RECENT_PATH) && !(!exactMatch(entry->path, COLLECTIONS_PATH) && prefixMatch(COLLECTIONS_PATH, entry->path))) break; // don't show contents of auto-launch dirs
 
 					if (entry->type==ENTRY_DIR) {
 						openDirectory(entry->path, 0);
