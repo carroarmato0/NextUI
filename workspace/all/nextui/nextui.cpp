@@ -398,25 +398,22 @@ static void Recent_free(Recent* self) {
 	free(self);
 }
 
-static int RecentArray_indexOf(Array* self, char* str) {
-	for (int i=0; i<self->count(); i++) {
-		Recent* item = static_cast<Recent*>(self->v[i]);
-		if (exactMatch(item->path, str)) return i;
+static int RecentArray_indexOf(std::vector<Recent*>& self, const char* str) {
+	for (size_t i=0; i<self.size(); i++) {
+		if (exactMatch(self[i]->path, str)) return (int)i;
 	}
 	return -1;
 }
-static void RecentArray_free(Array* self) {
-	for (int i=0; i<self->count(); i++) {
-		Recent_free(static_cast<Recent*>(self->v[i]));
-	}
-	Array_free(self);
+static void RecentArray_free(std::vector<Recent*>& self) {
+	for (Recent* r : self) Recent_free(r);
+	self.clear();
 }
 
 ///////////////////////////////////////
 
 static Directory* top;
 static Array* stack; // DirectoryArray
-static Array* recents; // RecentArray
+static std::vector<Recent*> recents;
 static Array *quick; // EntryArray
 static Array *quickActions; // EntryArray
 
@@ -442,8 +439,8 @@ static int startgame = 0;
 static void saveRecents(void) {
 	FILE* file = fopen(RECENT_PATH, "w");
 	if (file) {
-		for (int i=0; i<recents->count(); i++) {
-			Recent* recent = static_cast<Recent*>(recents->v[i]);
+		for (int i=0; i<(int)recents.size(); i++) {
+			Recent* recent = recents[i];
 			fputs(recent->path, file);
 			if (recent->alias) {
 				fputs("\t", file);
@@ -458,16 +455,15 @@ static void addRecent(char* path, char* alias) {
 	path += strlen(SDCARD_PATH); // makes paths platform agnostic
 	int id = RecentArray_indexOf(recents, path);
 	if (id==-1) { // add
-		while (recents->count()>=MAX_RECENTS) {
-			Recent_free(static_cast<Recent*>(Array_pop(recents)));
+		while ((int)recents.size()>=MAX_RECENTS) {
+			Recent_free(recents.back());
+			recents.pop_back();
 		}
-		Array_unshift(recents, Recent_new(path, alias));
+		recents.insert(recents.begin(), Recent_new(path, alias));
 	}
 	else if (id>0) { // bump to top
 		for (int i=id; i>0; i--) {
-			void* tmp = recents->v[i-1];
-			recents->v[i-1] = recents->v[i];
-			recents->v[i] = tmp;
+			std::swap(recents[i-1], recents[i]);
 		}
 	}
 	saveRecents();
@@ -541,7 +537,6 @@ static int hasRecents(void) {
 	LOG_info("hasRecents %s\n", RECENT_PATH);
 	int has = 0;
 	RecentArray_free(recents);
-	recents = Array_new();
 
 	Array* parent_paths = Array_new();
 	if (exists(CHANGE_DISC_PATH)) {
@@ -551,7 +546,7 @@ static int hasRecents(void) {
 			char* disc_path = sd_path + strlen(SDCARD_PATH); // makes path platform agnostic
 			Recent* recent = Recent_new(disc_path, NULL);
 			if (recent->available) has += 1;
-			Array_push(recents, recent);
+			recents.push_back(recent);
 
 			char parent_path[256];
 			snprintf(parent_path, sizeof(parent_path), "%s", disc_path);
@@ -583,7 +578,7 @@ static int hasRecents(void) {
 			char sd_path[256];
 			snprintf(sd_path, sizeof(sd_path), "%s%s", SDCARD_PATH, path);
 			if (exists(sd_path)) {
-				if (recents->count()<MAX_RECENTS) {
+				if ((int)recents.size()<MAX_RECENTS) {
 					// this logic replaces an existing disc from a multi-disc game with the last used
 					char m3u_path[256];
 					if (hasM3u(sd_path, m3u_path)) { // TODO: this might tank launch speed
@@ -609,7 +604,7 @@ static int hasRecents(void) {
 
 					Recent* recent = Recent_new(path, alias);
 					if (recent->available) has += 1;
-					Array_push(recents, recent);
+					recents.push_back(recent);
 				}
 			}
 		}
@@ -770,7 +765,7 @@ static Array* getQuickEntries(void) {
 	Array* entries = Array_new();
 
 	// We assume Menu_init was already called and populated this
-	if (recents && recents->count())
+	if (!recents.empty())
 		Array_push(entries, Entry_newNamed(FAUX_RECENT_PATH, ENTRY_DIR, "Recents"));
 
 	if (hasCollections())
@@ -862,8 +857,8 @@ static Entry* entryFromRecent(Recent* recent)
 
 static Array* getRecents(void) {
 	Array* entries = Array_new();
-	for (int i=0; i<recents->count(); i++) {
-		Recent* recent = static_cast<Recent*>(recents->v[i]);
+	for (int i=0; i<(int)recents.size(); i++) {
+		Recent* recent = recents[i];
 		Entry *entry = entryFromRecent(recent);
 		if(entry)
 			Array_push(entries, entry);
@@ -1583,8 +1578,6 @@ static void QuickMenu_quit(void) {
 
 static void Menu_init(void) {
 	stack = Array_new(); // array of open Directories
-	recents = Array_new();
-
 	openDirectory(SDCARD_PATH, 0);
 	loadLast(); // restore state when available
 
@@ -2418,29 +2411,29 @@ int main (int argc, char *argv[]) {
 				dirty = 1;
 				folderbgchanged = 1; // The background painting code is a clusterfuck, just force a repaint here
 			}
-			else if (recents->count() > 0 && PAD_justReleased(BTN_A)) {
+			else if ((int)recents.size() > 0 && PAD_justReleased(BTN_A)) {
 				// this will drop us back into game switcher after leaving the game
 				putFile(GAME_SWITCHER_PERSIST_PATH, "unused");
 				startgame = 1;
-				Entry *selectedEntry = entryFromRecent(static_cast<Recent*>(recents->v[switcher_selected]));
+				Entry *selectedEntry = entryFromRecent(recents[switcher_selected]);
 				should_resume = can_resume;
 				Entry_open(selectedEntry);
 				dirty = 1;
 				Entry_free(selectedEntry);
 			}
-			else if (recents->count() > 0 && PAD_justReleased(BTN_Y)) {
+			else if ((int)recents.size() > 0 && PAD_justReleased(BTN_Y)) {
 				// remove
-				Recent* recentEntry = static_cast<Recent*>(recents->v[switcher_selected--]);
-				Array_remove(recents, recentEntry);
+				Recent* recentEntry = recents[switcher_selected--];
+				recents.erase(std::find(recents.begin(), recents.end(), recentEntry));
 				Recent_free(recentEntry);
 				saveRecents();
 				if(switcher_selected < 0)
-					switcher_selected = recents->count() - 1; // wrap
+					switcher_selected = (int)recents.size() - 1; // wrap
 				dirty = 1;
 			}
 			else if (PAD_justPressed(BTN_RIGHT)) {
 				switcher_selected++;
-				if(switcher_selected == recents->count())
+				if(switcher_selected == (int)recents.size())
 					switcher_selected = 0; // wrap
 				dirty = 1;
 				gsanimdir = SLIDE_LEFT;
@@ -2448,7 +2441,7 @@ int main (int argc, char *argv[]) {
 			else if (PAD_justPressed(BTN_LEFT)) {
 				switcher_selected--;
 				if(switcher_selected < 0)
-					switcher_selected = recents->count() - 1; // wrap
+					switcher_selected = (int)recents.size() - 1; // wrap
 				dirty = 1;
 				gsanimdir = SLIDE_RIGHT;
 			}
@@ -2789,8 +2782,8 @@ int main (int argc, char *argv[]) {
 				oy = 0;
 
 				// For all recents with resumable state (i.e. has savegame), show game switcher carousel
-				if(recents->count() > 0) {
-					Entry *selectedEntry = entryFromRecent(static_cast<Recent*>(recents->v[switcher_selected]));
+				if((int)recents.size() > 0) {
+					Entry *selectedEntry = entryFromRecent(recents[switcher_selected]);
 					readyResume(selectedEntry);
 					// title pill
 					{
