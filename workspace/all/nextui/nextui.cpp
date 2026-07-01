@@ -2648,8 +2648,20 @@ int main (int argc, char *argv[]) {
 			}
 			else {
 				GFX_clearLayers(LAYER_TRANSITION);
-				if(lastScreen!=SCREEN_GAMELIST)
+				// Clear the thumbnail when leaving a gamelist, or when the
+				// directory depth changed this frame (moving up/down). Without the
+				// depth check, going from a ROM folder up to the systems overview
+				// is gamelist->gamelist, so the previous ROM's box art lingered on
+				// LAYER_THUMBNAIL and flashed through the directory transition.
+				// previous_depth is only updated later in the draw block, so here
+				// it still holds the old depth.
+				if(lastScreen!=SCREEN_GAMELIST || previous_depth != (int)stack.size()) {
+					SDL_LockMutex(thumbMutex);
+					if (thumbbmp) { SDL_FreeSurface(thumbbmp); thumbbmp = NULL; }
+					thumbchanged = 1;
+					SDL_UnlockMutex(thumbMutex);
 					GFX_clearLayers(LAYER_THUMBNAIL);
+				}
 				GFX_clearLayers(LAYER_SCROLLTEXT);
 				GFX_clearLayers(LAYER_IDK2);
 			}
@@ -3013,17 +3025,24 @@ int main (int argc, char *argv[]) {
 						char thumbpath[1024];
 						core::format(thumbpath, "%s/.media/%s.png", rompath, res_copy);
 						had_thumb = 0;
-						startLoadThumb(thumbpath, onThumbLoaded, NULL);
 						int max_w = (int)(screen->w - (screen->w * CFG_getGameArtWidth()));
 						int max_h = (int)(screen->h * 0.6);
 						int new_w = max_w;
 						int new_h = max_h;
 						if(exists(thumbpath)) {
+							startLoadThumb(thumbpath, onThumbLoaded, NULL);
 							ox = (int)(max_w) - SCALE1(BUTTON_MARGIN*5);
 							had_thumb = 1;
 						}
-						else
+						else {
+							// No art for this selection (e.g. a folder, or moving up
+							// a directory): clear any thumbnail from the previous
+							// selection right away, rather than queueing a load that
+							// only resolves to "no art" a frame or two later -- that
+							// async gap is what left the old box-art on screen briefly.
+							onThumbLoaded(NULL);
 							ox = screen->w;
+						}
 					}
 				}
 
