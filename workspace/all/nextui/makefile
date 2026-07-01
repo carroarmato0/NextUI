@@ -21,20 +21,49 @@ SDL?=SDL
 
 TARGET = nextui
 INCDIR = -I. -I../common/ -I../../$(PLATFORM)/platform/
-SOURCE = $(TARGET).c ../common/scaler.c ../common/utils.c ../common/config.c ../common/api.c ../../$(PLATFORM)/platform/platform.c
 
-CC = $(CROSS_COMPILE)gcc
-CFLAGS  += $(OPT)
-CFLAGS  += $(INCDIR) -DPLATFORM=\"$(PLATFORM)\" -std=gnu99
+# C and C++ translation units are listed separately. C files compile as C;
+# C++ files compile as C++; everything links through g++ so the two can mix
+# as modules are migrated to C++ incrementally.
+CSOURCE = $(TARGET).c ../common/scaler.c ../common/utils.c ../common/config.c ../common/api.c ../../$(PLATFORM)/platform/platform.c
+CXXSOURCE =
+
+CC  = $(CROSS_COMPILE)gcc
+CXX = $(CROSS_COMPILE)g++
+CFLAGS   += $(OPT)
+CFLAGS   += $(INCDIR) -DPLATFORM=\"$(PLATFORM)\"
+# CXXFLAGS inherits the platform CFLAGS (SDL/GL/PREFIX include paths) before the
+# C-only -std is appended, so C++ TUs get the same include/define environment.
+CXXFLAGS += $(CFLAGS) -std=gnu++20
+CFLAGS   += -std=gnu99
 LDFLAGS	 += -lmsettings
+
+OBJ_DIR = build/$(PLATFORM)
+OBJS = $(addprefix $(OBJ_DIR)/,$(notdir $(CSOURCE:.c=.o))) \
+       $(addprefix $(OBJ_DIR)/,$(notdir $(CXXSOURCE:.cpp=.o)))
 
 PRODUCT= build/$(PLATFORM)/$(TARGET).elf
 
-all: $(PREFIX_LOCAL)/include/msettings.h
-	mkdir -p build/$(PLATFORM)
-	$(CC) $(SOURCE) -o $(PRODUCT) $(CFLAGS) $(LDFLAGS)
+# Locate sources across their directories so a single pattern rule suffices.
+vpath %.c   . ../common ../../$(PLATFORM)/platform
+vpath %.cpp . ../common ../../$(PLATFORM)/platform
+
+all: $(PREFIX_LOCAL)/include/msettings.h $(PRODUCT)
+
+$(PRODUCT): $(OBJS)
+	$(CXX) $(OBJS) -o $(PRODUCT) $(LDFLAGS) -lstdc++
+
+$(OBJ_DIR)/%.o: %.c | $(OBJ_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJ_DIR)/%.o: %.cpp | $(OBJ_DIR)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(OBJ_DIR):
+	mkdir -p $(OBJ_DIR)
+
 clean:
-	rm -f $(PRODUCT)
+	rm -f $(PRODUCT) $(OBJS)
 
 $(PREFIX_LOCAL)/include/msettings.h:
 	cd ../../$(PLATFORM)/libmsettings && make

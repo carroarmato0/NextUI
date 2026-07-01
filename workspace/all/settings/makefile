@@ -29,7 +29,7 @@ CC = $(CROSS_COMPILE)gcc
 CXX = $(CROSS_COMPILE)g++
 CFLAGS += $(OPT)
 CFLAGS += $(INCDIR) -DPLATFORM=\"$(PLATFORM)\"
-CXXFLAGS += $(CFLAGS) -std=c++17
+CXXFLAGS += $(CFLAGS) -std=gnu++20
 CFLAGS += -fpermissive
 LDFLAGS +=  -lmsettings -lcrypto
 ifeq ($(PLATFORM), tg5040)
