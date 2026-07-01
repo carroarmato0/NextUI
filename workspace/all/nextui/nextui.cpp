@@ -39,45 +39,6 @@ extern "C" {
 
 ///////////////////////////////////////
 
-typedef struct Array {
-	std::vector<void*> v;
-	int count() const { return (int)v.size(); }
-} Array;
-
-static Array* Array_new(void) {
-	return new Array();
-}
-static void Array_push(Array* self, void* item) {
-	self->v.push_back(item);
-}
-static void Array_unshift(Array* self, void* item) {
-	self->v.insert(self->v.begin(), item);
-}
-static void* Array_pop(Array* self) {
-	if (self->v.empty()) return NULL;
-	void* item = self->v.back();
-	self->v.pop_back();
-	return item;
-}
-static void Array_remove(Array* self, void* item) {
-	if (item == NULL) return;
-	auto it = std::find(self->v.begin(), self->v.end(), item);
-	if (it != self->v.end()) self->v.erase(it);
-}
-static void Array_reverse(Array* self) {
-	std::reverse(self->v.begin(), self->v.end());
-}
-static void Array_free(Array* self) {
-	// container only; the elements are owned elsewhere. The typed
-	// *Array_free wrappers below free their elements before calling us.
-	delete self;
-}
-static void Array_yoink(Array* self, Array* other) {
-	// append other's entries to self and take ownership of them
-	self->v.insert(self->v.end(), other->v.begin(), other->v.end());
-	Array_free(other); // container only; `self` now owns the entries
-}
-
 static void StringArray_free(std::vector<char*>& self) {
 	for (char* s : self) free(s);
 	self.clear();
@@ -145,25 +106,22 @@ static void Entry_free(Entry* self) {
 	free(self);
 }
 
-static int EntryArray_indexOf(Array* self, char* path) {
-	for (int i=0; i<self->count(); i++) {
-		Entry* entry = static_cast<Entry*>(self->v[i]);
-		if (exactMatch(entry->path, path)) return i;
+static int EntryArray_indexOf(std::vector<Entry*>& self, const char* path) {
+	for (size_t i=0; i<self.size(); i++) {
+		if (exactMatch(self[i]->path, path)) return (int)i;
 	}
 	return -1;
 }
-static void EntryArray_sort(Array* self) {
+static void EntryArray_sort(std::vector<Entry*>& self) {
 	// same not-stable, case-insensitive name ordering the old qsort gave us
-	std::sort(self->v.begin(), self->v.end(), [](void* a, void* b) {
-		return strcasecmp(static_cast<Entry*>(a)->name, static_cast<Entry*>(b)->name) < 0;
+	std::sort(self.begin(), self.end(), [](Entry* a, Entry* b) {
+		return strcasecmp(a->name, b->name) < 0;
 	});
 }
 
-static void EntryArray_free(Array* self) {
-	for (int i=0; i<self->count(); i++) {
-		Entry_free(static_cast<Entry*>(self->v[i]));
-	}
-	Array_free(self);
+static void EntryArray_free(std::vector<Entry*>& self) {
+	for (Entry* e : self) Entry_free(e);
+	self.clear();
 }
 
 ///////////////////////////////////////
@@ -171,8 +129,8 @@ static void EntryArray_free(Array* self) {
 typedef struct Directory {
 	char* path;
 	char* name;
-	Array* entries;
-	std::vector<int>* alphas;
+	std::vector<Entry*> entries;
+	std::vector<int> alphas;
 	// rendering
 	int selected;
 	int start;
@@ -223,8 +181,8 @@ static void Directory_index(Directory* self) {
 
             int resort = 0;
             int filter = 0;
-            for (int i = 0; i < self->entries->count(); i++) {
-                Entry* entry = static_cast<Entry*>(self->entries->v[i]);
+            for (int i = 0; i < (int)self->entries.size(); i++) {
+                Entry* entry = self->entries[i];
                 char* filename = strrchr(entry->path, '/') + 1;
                 const char* alias = Hash_get(map, filename);
                 if (alias) {
@@ -236,17 +194,16 @@ static void Directory_index(Directory* self) {
             }
 
             if (filter) {
-                Array* entries = Array_new();
-                for (int i = 0; i < self->entries->count(); i++) {
-                    Entry* entry = static_cast<Entry*>(self->entries->v[i]);
+                std::vector<Entry*> filtered;
+                for (int i = 0; i < (int)self->entries.size(); i++) {
+                    Entry* entry = self->entries[i];
                     if (hide(entry->name)) {
                         Entry_free(entry); // Ensure Entry_free handles all memory cleanup
                     } else {
-                        Array_push(entries, entry);
+                        filtered.push_back(entry);
                     }
                 }
-                Array_free(self->entries);
-                self->entries = entries;
+                self->entries = std::move(filtered);
             }
             if (resort) EntryArray_sort(self->entries);
         }
@@ -255,8 +212,8 @@ static void Directory_index(Directory* self) {
     Entry* prior = NULL;
     int alpha = -1;
     int index = 0;
-    for (int i = 0; i < self->entries->count(); i++) {
-        Entry* entry = static_cast<Entry*>(self->entries->v[i]);
+    for (int i = 0; i < (int)self->entries.size(); i++) {
+        Entry* entry = self->entries[i];
         if (map) {
             char* filename = strrchr(entry->path, '/') + 1;
             const char* alias = Hash_get(map, filename);
@@ -291,8 +248,8 @@ static void Directory_index(Directory* self) {
         if (!skip_index) {
             int a = getIndexChar(entry->name);
             if (a != alpha) {
-                index = (int)self->alphas->size();
-                self->alphas->push_back(i);
+                index = (int)self->alphas.size();
+                self->alphas.push_back(i);
                 alpha = a;
             }
             entry->alpha = index;
@@ -304,18 +261,18 @@ static void Directory_index(Directory* self) {
     if (map) Hash_free(map);  // Free the map at the end
 }
 
-static Array* getRoot(void);
-static Array* getRoms(void);
-static Array* getRecents(void);
-static Array* getCollection(char* path);
-static Array* getDiscs(char* path);
-static Array* getEntries(char* path);
+static std::vector<Entry*> getRoot(void);
+static std::vector<Entry*> getRoms(void);
+static std::vector<Entry*> getRecents(void);
+static std::vector<Entry*> getCollection(char* path);
+static std::vector<Entry*> getDiscs(char* path);
+static std::vector<Entry*> getEntries(char* path);
 
 static Directory* Directory_new(char* path, int selected) {
 	char display_name[256];
 	getDisplayName(path, display_name);
 
-	Directory* self = (Directory*)(malloc(sizeof(Directory)));
+	Directory* self = new Directory();
 	self->path = strdup(path);
 	self->name = strdup(display_name);
 	if (exactMatch(path, SDCARD_PATH)) {
@@ -336,7 +293,6 @@ static Directory* Directory_new(char* path, int selected) {
 	else {
 		self->entries = getEntries(path);
 	}
-	self->alphas = new std::vector<int>();
 	self->selected = selected;
 	Directory_index(self);
 	return self;
@@ -345,8 +301,7 @@ static void Directory_free(Directory* self) {
 	free(self->path);
 	free(self->name);
 	EntryArray_free(self->entries);
-	delete self->alphas;
-	free(self);
+	delete self;
 }
 
 static void DirectoryArray_pop(std::vector<Directory*>& self) {
@@ -406,8 +361,8 @@ static void RecentArray_free(std::vector<Recent*>& self) {
 static Directory* top;
 static std::vector<Directory*> stack;
 static std::vector<Recent*> recents;
-static Array *quick; // EntryArray
-static Array *quickActions; // EntryArray
+static std::vector<Entry*> quick;
+static std::vector<Entry*> quickActions;
 
 static int quit = 0;
 static int can_resume = 0;
@@ -654,9 +609,9 @@ static int hasTools(void) {
 	return exists(tools_path);
 }
 
-static Array* getRoms()
+static std::vector<Entry*> getRoms()
 {
-	Array* entries = Array_new();
+	std::vector<Entry*> entries;
     DIR* dh = opendir(ROMS_PATH);
     if (dh) {
         struct dirent* dp;
@@ -664,34 +619,33 @@ static Array* getRoms()
         snprintf(full_path, sizeof(full_path), "%s/", ROMS_PATH);
         char* tmp = full_path + strlen(full_path);
 
-        Array* emus = Array_new();
+        std::vector<Entry*> emus;
         while ((dp = readdir(dh)) != NULL) {
             if (hide(dp->d_name)) continue;
             if (hasRoms(dp->d_name)) {
                 snprintf(tmp, sizeof(full_path) - (tmp - full_path), "%s", dp->d_name);
-                Array_push(emus, Entry_new(full_path, ENTRY_DIR));
+                emus.push_back(Entry_new(full_path, ENTRY_DIR));
             }
         }
         closedir(dh); // Ensure directory is closed immediately after use
 
         EntryArray_sort(emus);
         Entry* prev_entry = NULL;
-        for (int i = 0; i < emus->count(); i++) {
-            Entry* entry = static_cast<Entry*>(emus->v[i]);
+        for (int i = 0; i < (int)emus.size(); i++) {
+            Entry* entry = emus[i];
             if (prev_entry && exactMatch(prev_entry->name, entry->name)) {
                 Entry_free(entry);
                 continue;
             }
-            Array_push(entries, entry);
+            entries.push_back(entry);
             prev_entry = entry;
         }
-        Array_free(emus); // Only frees container, entries now owns the items
     }
 
 	// Handle mapping logic
     char map_path[256];
     snprintf(map_path, sizeof(map_path), "%s/map.txt", ROMS_PATH);
-    if (entries->count() > 0 && exists(map_path)) {
+    if ((int)entries.size() > 0 && exists(map_path)) {
         FILE* file = fopen(map_path, "r");
         if (file) {
             Hash* map = Hash_new();
@@ -713,8 +667,8 @@ static Array* getRoms()
             fclose(file);
 
             int resort = 0;
-            for (int i = 0; i < entries->count(); i++) {
-                Entry* entry = static_cast<Entry*>(entries->v[i]);
+            for (int i = 0; i < (int)entries.size(); i++) {
+                Entry* entry = entries[i];
                 char* filename = strrchr(entry->path, '/') + 1;
                 const char* alias = Hash_get(map, filename);
                 if (alias) {
@@ -731,7 +685,7 @@ static Array* getRoms()
 	return entries;
 }
 
-static Array* getCollections(void)
+static std::vector<Entry*> getCollections(void)
 {
 	DIR* dh = opendir(COLLECTIONS_PATH);
 	if (dh) {
@@ -740,92 +694,92 @@ static Array* getCollections(void)
 		snprintf(full_path, sizeof(full_path), "%s/", COLLECTIONS_PATH);
 		char* tmp = full_path + strlen(full_path);
 
-		Array* collections = Array_new();
+		std::vector<Entry*> collections;
 		while ((dp = readdir(dh)) != NULL) {
 			if (hide(dp->d_name)) continue;
 			snprintf(tmp, sizeof(full_path) - (tmp - full_path), "%s", dp->d_name);
-			Array_push(collections, Entry_new(full_path, ENTRY_DIR)); // Collections are fake directories
+			collections.push_back(Entry_new(full_path, ENTRY_DIR)); // Collections are fake directories
 		}
 		closedir(dh); // Close immediately after use
 		EntryArray_sort(collections);
 		return collections;
 	}
-	return NULL;
+	return {};
 }
 
-static Array* getQuickEntries(void) {
-	Array* entries = Array_new();
+static std::vector<Entry*> getQuickEntries(void) {
+	std::vector<Entry*> entries;
 
 	// We assume Menu_init was already called and populated this
 	if (!recents.empty())
-		Array_push(entries, Entry_newNamed(FAUX_RECENT_PATH, ENTRY_DIR, "Recents"));
+		entries.push_back(Entry_newNamed(FAUX_RECENT_PATH, ENTRY_DIR, "Recents"));
 
 	if (hasCollections())
-		Array_push(entries, Entry_new(COLLECTIONS_PATH, ENTRY_DIR));
+		entries.push_back(Entry_new(COLLECTIONS_PATH, ENTRY_DIR));
 
 	// Not sure we need this, its just a button press away (B)
-	Array_push(entries, Entry_newNamed(ROMS_PATH, ENTRY_DIR, "Games"));
+	entries.push_back(Entry_newNamed(ROMS_PATH, ENTRY_DIR, "Games"));
 
 	// Add tools if applicable
     if (hasTools() && !simple_mode) {
 		char tools_path[256];
 		snprintf(tools_path, sizeof(tools_path), "%s/Tools/%s", SDCARD_PATH, PLATFORM);
-        Array_push(entries, Entry_new(tools_path, ENTRY_DIR));
+        entries.push_back(Entry_new(tools_path, ENTRY_DIR));
     }
 
 	return entries;
 }
 
-static Array* getQuickToggles(void) {
-	Array *entries = Array_new();
+static std::vector<Entry*> getQuickToggles(void) {
+	std::vector<Entry*> entries;
 
 	Entry *settings = entryFromPakName("Settings");
 	if (settings)
-		Array_push(entries, settings);
+		entries.push_back(settings);
 
 	Entry *store = entryFromPakName("Pak Store");
 	if (store)
-		Array_push(entries, store);
+		entries.push_back(store);
 
 	// quick actions
 	if(WIFI_supported())
-		Array_push(entries, Entry_new("Wifi", ENTRY_DIP));
+		entries.push_back(Entry_new("Wifi", ENTRY_DIP));
 	if(BT_supported())
-		Array_push(entries, Entry_new("Bluetooth", ENTRY_DIP));
+		entries.push_back(Entry_new("Bluetooth", ENTRY_DIP));
 	if(PLAT_supportsDeepSleep() && !simple_mode)
-		Array_push(entries, Entry_new("Sleep", ENTRY_DIP));
-	Array_push(entries, Entry_new("Reboot", ENTRY_DIP));
-	Array_push(entries, Entry_new("Poweroff", ENTRY_DIP));
+		entries.push_back(Entry_new("Sleep", ENTRY_DIP));
+	entries.push_back(Entry_new("Reboot", ENTRY_DIP));
+	entries.push_back(Entry_new("Poweroff", ENTRY_DIP));
 
 	return entries;
 }
 
-static Array* getRoot(void) {
-    Array* root = Array_new();
+static std::vector<Entry*> getRoot(void) {
+    std::vector<Entry*> root;
 
     if (hasRecents() && CFG_getShowRecents())
-		Array_push(root, Entry_new(FAUX_RECENT_PATH, ENTRY_DIR));
+		root.push_back(Entry_new(FAUX_RECENT_PATH, ENTRY_DIR));
 
-	Array *entries = getRoms();
+	std::vector<Entry*> entries = getRoms();
 
 	// Handle collections
 	if (hasCollections() && CFG_getShowCollections()) {
-        if (entries->count()) {
-            Array_push(root, Entry_new(COLLECTIONS_PATH, ENTRY_DIR));
+        if ((int)entries.size()) {
+            root.push_back(Entry_new(COLLECTIONS_PATH, ENTRY_DIR));
         } else { // No visible systems, promote collections to root
-			Array *collections = getCollections();
-			Array_yoink(entries, collections);
+			std::vector<Entry*> collections = getCollections();
+			entries.insert(entries.end(), collections.begin(), collections.end()); collections.clear();
         }
     }
 
     // Move entries to root
-	Array_yoink(root, entries);
+	root.insert(root.end(), entries.begin(), entries.end()); entries.clear();
 
 	// Add tools if applicable
     if (hasTools() && CFG_getShowTools() && !simple_mode) {
 		char tools_path[256];
 		snprintf(tools_path, sizeof(tools_path), "%s/Tools/%s", SDCARD_PATH, PLATFORM);
-        Array_push(root, Entry_new(tools_path, ENTRY_DIR));
+        root.push_back(Entry_new(tools_path, ENTRY_DIR));
     }
 
     return root;
@@ -834,7 +788,7 @@ static Array* getRoot(void) {
 static Entry* entryFromRecent(Recent* recent)
 {
 	if(!recent || !recent->available)
-		return NULL;
+		return {};
 
 	char sd_path[256];
 	snprintf(sd_path, sizeof(sd_path), "%s%s", SDCARD_PATH, recent->path);
@@ -847,19 +801,19 @@ static Entry* entryFromRecent(Recent* recent)
 	return entry;
 }
 
-static Array* getRecents(void) {
-	Array* entries = Array_new();
+static std::vector<Entry*> getRecents(void) {
+	std::vector<Entry*> entries;
 	for (int i=0; i<(int)recents.size(); i++) {
 		Recent* recent = recents[i];
 		Entry *entry = entryFromRecent(recent);
 		if(entry)
-			Array_push(entries, entry);
+			entries.push_back(entry);
 	}
 	return entries;
 }
 
-static Array* getCollection(char* path) {
-	Array* entries = Array_new();
+static std::vector<Entry*> getCollection(char* path) {
+	std::vector<Entry*> entries;
 	FILE* file = fopen(path, "r");
 	if (file) {
 		char line[256];
@@ -872,12 +826,12 @@ static Array* getCollection(char* path) {
 			snprintf(sd_path, sizeof(sd_path), "%s%s", SDCARD_PATH, line);
 			if (exists(sd_path)) {
 				int type = suffixMatch(".pak", sd_path) ? ENTRY_PAK : ENTRY_ROM; // ???
-				Array_push(entries, Entry_new(sd_path, type));
+				entries.push_back(Entry_new(sd_path, type));
 
 				// char emu_name[256];
 				// getEmuName(sd_path, emu_name);
 				// if (hasEmu(emu_name)) {
-					// Array_push(entries, Entry_new(sd_path, ENTRY_ROM));
+					// entries.push_back(Entry_new(sd_path, ENTRY_ROM));
 				// }
 			}
 		}
@@ -885,11 +839,11 @@ static Array* getCollection(char* path) {
 	}
 	return entries;
 }
-static Array* getDiscs(char* path){
+static std::vector<Entry*> getDiscs(char* path){
 
 	// TODO: does path have SDCARD_PATH prefix?
 
-	Array* entries = Array_new();
+	std::vector<Entry*> entries;
 
 	char base_path[256];
 	snprintf(base_path, sizeof(base_path), "%s", path);
@@ -916,7 +870,7 @@ static Array* getDiscs(char* path){
 				char name[16];
 				snprintf(name, sizeof(name), "Disc %i", disc);
 				entry->name = strdup(name);
-				Array_push(entries, entry);
+				entries.push_back(entry);
 			}
 		}
 		fclose(file);
@@ -949,7 +903,7 @@ static int getFirstDisc(char* m3u_path, char* disc_path) { // based on getDiscs(
 	return found;
 }
 
-static void addEntries(Array* entries, char* path) {
+static void addEntries(std::vector<Entry*>& entries, char* path) {
 	DIR *dh = opendir(path);
 	if (dh!=NULL) {
 		struct dirent *dp;
@@ -979,7 +933,7 @@ static void addEntries(Array* entries, char* path) {
 					type = ENTRY_ROM;
 				}
 			}
-			Array_push(entries, Entry_new(full_path, type));
+			entries.push_back(Entry_new(full_path, type));
 		}
 		closedir(dh);
 	}
@@ -995,8 +949,8 @@ static int isConsoleDir(char* path) {
 	return exactMatch(parent_dir, ROMS_PATH);
 }
 
-static Array* getEntries(char* path){
-	Array* entries = Array_new();
+static std::vector<Entry*> getEntries(char* path){
+	std::vector<Entry*> entries;
 
 	if (isConsoleDir(path)) { // top-level console folder, might collate
 		char collated_path[256];
@@ -1294,7 +1248,7 @@ std::vector<Directory*> pathToStack(const char* path) {
 	// Always include root directory
 	Directory* root_dir = Directory_new(SDCARD_PATH, 0);
 	root_dir->start = 0;
-	root_dir->end = (root_dir->entries->count() < MAIN_ROW_COUNT) ? root_dir->entries->count() : MAIN_ROW_COUNT;
+	root_dir->end = ((int)root_dir->entries.size() < MAIN_ROW_COUNT) ? (int)root_dir->entries.size() : MAIN_ROW_COUNT;
 	array.push_back(root_dir);
 
 	if (exactMatch(path, SDCARD_PATH)) return array;
@@ -1338,13 +1292,13 @@ std::vector<Directory*> pathToStack(const char* path) {
 				// Replace with updated one using combined path
 				Directory* merged = Directory_new(temp_path, 0);
 				merged->start = 0;
-				merged->end = (merged->entries->count() < MAIN_ROW_COUNT) ? merged->entries->count() : MAIN_ROW_COUNT;
+				merged->end = ((int)merged->entries.size() < MAIN_ROW_COUNT) ? (int)merged->entries.size() : MAIN_ROW_COUNT;
 				array.push_back(merged);
 			}
 		} else {
 			Directory* dir = Directory_new(temp_path, 0);
 			dir->start = 0;
-			dir->end = (dir->entries->count() < MAIN_ROW_COUNT) ? dir->entries->count() : MAIN_ROW_COUNT;
+			dir->end = ((int)dir->entries.size() < MAIN_ROW_COUNT) ? (int)dir->entries.size() : MAIN_ROW_COUNT;
 			array.push_back(dir);
 		}
 
@@ -1385,7 +1339,7 @@ static void openDirectory(char* path, int auto_launch) {
 		int selected = 0;
 		int start = 0;
 		int end = 0;
-		if (top && top->entries->count()>0) {
+		if (top && (int)top->entries.size()>0) {
 			if (restore_depth==(int)stack.size() && top->selected==restore_relative) {
 				selected = restore_selected;
 				start = restore_start;
@@ -1395,7 +1349,7 @@ static void openDirectory(char* path, int auto_launch) {
 
 		top = Directory_new(path, selected);
 		top->start = start;
-		top->end = end ? end : ((top->entries->count()<MAIN_ROW_COUNT) ? top->entries->count() : MAIN_ROW_COUNT);
+		top->end = end ? end : (((int)top->entries.size()<MAIN_ROW_COUNT) ? (int)top->entries.size() : MAIN_ROW_COUNT);
 
 		stack.push_back(top);
 	}
@@ -1524,8 +1478,8 @@ static void loadLast(void) { // call after loading root directory
 				if (tmp) tmp[1] = '\0'; // 1 because we want to keep the opening parenthesis to avoid collating "Game Boy Color" and "Game Boy Advance" into "Game Boy"
 			}
 
-			for (int i=0; i<top->entries->count(); i++) {
-				Entry* entry = static_cast<Entry*>(top->entries->v[i]);
+			for (int i=0; i<(int)top->entries.size(); i++) {
+				Entry* entry = top->entries[i];
 
 				// NOTE: strlen() is required for collated_path, '\0' wasn't reading as NULL for some reason
 				if (exactMatch(entry->path, path) || (strlen(collated_path) && prefixMatch(collated_path, entry->path)) || (prefixMatch(COLLECTIONS_PATH, full_path) && suffixMatch(filename, entry->path))) {
@@ -1533,8 +1487,8 @@ static void loadLast(void) { // call after loading root directory
 					if (i>=top->end) {
 						top->start = i;
 						top->end = top->start + MAIN_ROW_COUNT;
-						if (top->end>top->entries->count()) {
-							top->end = top->entries->count();
+						if (top->end>(int)top->entries.size()) {
+							top->end = (int)top->entries.size();
 							top->start = top->end - MAIN_ROW_COUNT;
 						}
 					}
@@ -1552,8 +1506,8 @@ static void loadLast(void) { // call after loading root directory
 
 	StringArray_free(last);
 
-	if (top->selected >= 0 && top->selected < top->entries->count()) {
-		Entry* selected_entry = static_cast<Entry*>(top->entries->v[top->selected]);
+	if (top->selected >= 0 && top->selected < (int)top->entries.size()) {
+		Entry* selected_entry = top->entries[top->selected];
 		readyResume(selected_entry);
 	}
 }
@@ -2229,7 +2183,7 @@ int main (int argc, char *argv[]) {
 	int qm_col = 0;
 	int qm_slot = 0;
 	int qm_shift = 0;
-	int qm_slots = QUICK_SWITCHER_COUNT > quick->count() ? quick->count() : QUICK_SWITCHER_COUNT;
+	int qm_slots = QUICK_SWITCHER_COUNT > (int)quick.size() ? (int)quick.size() : QUICK_SWITCHER_COUNT;
 	// LOG_info("- menu init: %lu\n", SDL_GetTicks() - main_begin);
 
 	int lastScreen = SCREEN_OFF;
@@ -2286,7 +2240,7 @@ int main (int argc, char *argv[]) {
 		PAD_poll();
 
 		int selected = top->selected;
-		int total = top->entries->count();
+		int total = (int)top->entries.size();
 
 		PWR_update(&dirty, &show_setting, NULL, NULL);
 
@@ -2308,7 +2262,7 @@ int main (int argc, char *argv[]) {
 		int gsanimdir = ANIM_NONE;
 
 		if (currentScreen == SCREEN_QUICKMENU) {
-			int qm_total = qm_row == 0 ? quick->count() : quickActions->count();
+			int qm_total = qm_row == 0 ? (int)quick.size() : (int)quickActions.size();
 
 			if (PAD_justPressed(BTN_B) || PAD_tappedMenu(now)) {
 				currentScreen = SCREEN_GAMELIST;
@@ -2316,10 +2270,10 @@ int main (int argc, char *argv[]) {
 				dirty = 1;
 			}
 			else if (PAD_justReleased(BTN_A)) {
-				Entry* selected = static_cast<Entry*>(qm_row == 0 ? quick->v[qm_col] : quickActions->v[qm_col]);
+				Entry* selected = (qm_row == 0 ? quick[qm_col] : quickActions[qm_col]);
 				if(selected->type != ENTRY_DIP) {
 					currentScreen = SCREEN_GAMELIST;
-					total = top->entries->count();
+					total = (int)top->entries.size();
 					// prevent restoring list state, game list screen currently isnt our nav origin
 					top->selected = 0;
 					top->start = 0;
@@ -2520,10 +2474,10 @@ int main (int argc, char *argv[]) {
 			}
 
 			if (PAD_justRepeated(BTN_L1) && !PAD_isPressed(BTN_R1) && !PWR_ignoreSettingInput(BTN_L1, show_setting)) { // previous alpha
-				Entry* entry = static_cast<Entry*>(top->entries->v[selected]);
+				Entry* entry = top->entries[selected];
 				int i = entry->alpha-1;
 				if (i>=0) {
-					selected = (*top->alphas)[i];
+					selected = top->alphas[i];
 					if (total>MAIN_ROW_COUNT) {
 						top->start = selected;
 						top->end = top->start + MAIN_ROW_COUNT;
@@ -2533,10 +2487,10 @@ int main (int argc, char *argv[]) {
 				}
 			}
 			else if (PAD_justRepeated(BTN_R1) && !PAD_isPressed(BTN_L1) && !PWR_ignoreSettingInput(BTN_R1, show_setting)) { // next alpha
-				Entry* entry = static_cast<Entry*>(top->entries->v[selected]);
+				Entry* entry = top->entries[selected];
 				int i = entry->alpha+1;
-				if (i<(int)top->alphas->size()) {
-					selected = (*top->alphas)[i];
+				if (i<(int)top->alphas.size()) {
+					selected = top->alphas[i];
 					if (total>MAIN_ROW_COUNT) {
 						top->start = selected;
 						top->end = top->start + MAIN_ROW_COUNT;
@@ -2551,7 +2505,7 @@ int main (int argc, char *argv[]) {
 				dirty = 1;
 			}
 
-			Entry* entry = static_cast<Entry*>(top->entries->v[top->selected]);
+			Entry* entry = top->entries[top->selected];
 
 			if (dirty && total>0)
 				readyResume(entry);
@@ -2566,19 +2520,19 @@ int main (int argc, char *argv[]) {
 				Entry_open(entry);
 				if(entry->type == ENTRY_DIR) {
 					animationdirection = SLIDE_LEFT;
-					total = top->entries->count();
+					total = (int)top->entries.size();
 				}
 				dirty = 1;
 
-				if (total>0) readyResume(static_cast<Entry*>(top->entries->v[top->selected]));
+				if (total>0) readyResume(top->entries[top->selected]);
 			}
 			else if (PAD_justPressed(BTN_B) && (int)stack.size()>1) {
 				closeDirectory();
 				animationdirection = SLIDE_RIGHT;
-				total = top->entries->count();
+				total = (int)top->entries.size();
 				dirty = 1;
 
-				if (total>0) readyResume(static_cast<Entry*>(top->entries->v[top->selected]));
+				if (total>0) readyResume(top->entries[top->selected]);
 			}
 		}
 
@@ -2612,7 +2566,7 @@ int main (int argc, char *argv[]) {
 					GFX_clearLayers(LAYER_THUMBNAIL);
 				}
 
-				Entry* current = static_cast<Entry*>(qm_row == 0 ? quick->v[qm_col] : quickActions->v[qm_col]);
+				Entry* current = (qm_row == 0 ? quick[qm_col] : quickActions[qm_col]);
 				char newBgPath[MAX_PATH];
 				char fallbackBgPath[MAX_PATH];
 
@@ -2665,10 +2619,10 @@ int main (int argc, char *argv[]) {
 					// just to keep selection visible.
 					// every display should be able to fit three items, we shift horizontally to accomodate.
 					ox -= qm_shift * (item_size + SCALE1(MENU_ITEM_MARGIN));
-					for (int c = 0; c < quick->count(); c++)
+					for (int c = 0; c < (int)quick.size(); c++)
 					{
 						SDL_Rect item_rect = {ox, oy, item_size, item_size};
-						Entry* item = static_cast<Entry*>(quick->v[c]);
+						Entry* item = quick[c];
 
 						SDL_Color text_color = uintToColour(THEME_COLOR4_255);
 						uint32_t item_color = THEME_COLOR3;
@@ -2712,11 +2666,11 @@ int main (int argc, char *argv[]) {
 
 					// secondary
 					ox = SCALE1(PADDING + MENU_MARGIN_X);
-					ox += (screen->w - SCALE1(PADDING + MENU_MARGIN_X + MENU_MARGIN_X + PADDING) - SCALE1(quickActions->count() * PILL_SIZE) - SCALE1((quickActions->count() - 1) * MENU_TOGGLE_MARGIN))/2;
+					ox += (screen->w - SCALE1(PADDING + MENU_MARGIN_X + MENU_MARGIN_X + PADDING) - SCALE1((int)quickActions.size() * PILL_SIZE) - SCALE1(((int)quickActions.size() - 1) * MENU_TOGGLE_MARGIN))/2;
 					oy = SCALE1(PADDING + PILL_SIZE + BUTTON_MARGIN + MENU_MARGIN_Y + MENU_LINE_MARGIN) + item_size + item_extra_y / 2;
-					for (int c = 0; c < quickActions->count(); c++) {
+					for (int c = 0; c < (int)quickActions.size(); c++) {
 						SDL_Rect item_rect = {ox, oy, SCALE1(PILL_SIZE), SCALE1(PILL_SIZE)};
-						Entry* item = static_cast<Entry*>(quickActions->v[c]);
+						Entry* item = quickActions[c];
 
 						SDL_Color text_color = uintToColour(THEME_COLOR4_255);
 						uint32_t item_color = THEME_COLOR3;
@@ -2900,7 +2854,7 @@ int main (int argc, char *argv[]) {
 			}
 			else { // if currentscreen == SCREEN_GAMELIST
 				// background and game art file path stuff
-				Entry* entry = static_cast<Entry*>(top->entries->v[top->selected]);
+				Entry* entry = top->entries[top->selected];
 				assert(entry);
 				char tmp_path[MAX_PATH];
 				strncpy(tmp_path, entry->path, sizeof(tmp_path) - 1);
@@ -3006,7 +2960,7 @@ int main (int argc, char *argv[]) {
 					targetY = selected_row * PILL_SIZE;
 					SDL_Color text_color = uintToColour(THEME_COLOR4_255); // list text color
 					for (int i = top->start, j = 0; i < top->end; i++, j++) {
-						Entry* entry = static_cast<Entry*>(top->entries->v[i]);
+						Entry* entry = top->entries[i];
 						char* entry_name = entry->name;
 						char* entry_unique = entry->unique;
 						int available_width = MAX(0,(had_thumb ? ox + SCALE1(BUTTON_MARGIN) : screen->w - SCALE1(BUTTON_MARGIN)) - SCALE1(PADDING * 2));
@@ -3259,7 +3213,7 @@ int main (int argc, char *argv[]) {
 			if (currentScreen != SCREEN_GAMESWITCHER && currentScreen != SCREEN_QUICKMENU) {
 				if(is_scrolling && pillanimdone && currentAnimQueueSize < 1) {
 					int ow = GFX_blitHardwareGroup(screen, show_setting);
-					Entry* entry = static_cast<Entry*>(top->entries->v[top->selected]);
+					Entry* entry = top->entries[top->selected];
 					trimSortingMeta(&entry->name);
 					char* entry_text = entry->name;
 					if (entry->unique) {
@@ -3339,7 +3293,7 @@ int main (int argc, char *argv[]) {
 		if (has_hdmi!=had_hdmi) {
 			had_hdmi = has_hdmi;
 
-			Entry* entry = static_cast<Entry*>(top->entries->v[top->selected]);
+			Entry* entry = top->entries[top->selected];
 			LOG_info("restarting after HDMI change... (%s)\n", entry->path);
 			saveLast(entry->path); // NOTE: doesn't work in Recents (by design)
 			sleep(4);
