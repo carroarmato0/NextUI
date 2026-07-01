@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <algorithm>
 
 extern "C" {
 #include <msettings.h>
@@ -39,75 +40,53 @@ extern "C" {
 ///////////////////////////////////////
 
 typedef struct Array {
-	int count;
-	int capacity;
-	void** items;
+	std::vector<void*> v;
+	int count() const { return (int)v.size(); }
 } Array;
 
 static Array* Array_new(void) {
-	Array* self = (Array*)(malloc(sizeof(Array)));
-	self->count = 0;
-	self->capacity = 8;
-	self->items = (void**)(malloc(sizeof(void*) * self->capacity));
-	return self;
+	return new Array();
 }
 static void Array_push(Array* self, void* item) {
-	if (self->count>=self->capacity) {
-		self->capacity *= 2;
-		self->items = (void**)(realloc(self->items, sizeof(void*) * self->capacity));
-	}
-	self->items[self->count++] = item;
+	self->v.push_back(item);
 }
 static void Array_unshift(Array* self, void* item) {
-	if (self->count==0) return Array_push(self, item);
-	Array_push(self, NULL); // ensures we have enough capacity
-	for (int i=self->count-2; i>=0; i--) {
-		self->items[i+1] = self->items[i];
-	}
-	self->items[0] = item;
+	self->v.insert(self->v.begin(), item);
 }
 static void* Array_pop(Array* self) {
-	if (self->count==0) return NULL;
-	return self->items[--self->count];
+	if (self->v.empty()) return NULL;
+	void* item = self->v.back();
+	self->v.pop_back();
+	return item;
 }
 static void Array_remove(Array* self, void* item) {
-	if (self->count==0 || item == NULL)
-		return;
-	int i = 0;
-	while (self->items[i] != item) i++;
-	for (int j = i; j < self->count-1; j++)
-		self->items[j] = self->items[j+1];
-	self->count--;
+	if (item == NULL) return;
+	auto it = std::find(self->v.begin(), self->v.end(), item);
+	if (it != self->v.end()) self->v.erase(it);
 }
 static void Array_reverse(Array* self) {
-	int end = self->count-1;
-	int mid = self->count/2;
-	for (int i=0; i<mid; i++) {
-		void* item = self->items[i];
-		self->items[i] = self->items[end-i];
-		self->items[end-i] = item;
-	}
+	std::reverse(self->v.begin(), self->v.end());
 }
 static void Array_free(Array* self) {
-	free(self->items);
-	free(self);
+	// container only; the elements are owned elsewhere. The typed
+	// *Array_free wrappers below free their elements before calling us.
+	delete self;
 }
 static void Array_yoink(Array* self, Array* other) {
-	// append entries to self and take ownership
-	for (int i = 0; i < other->count; i++)
-        Array_push(self, other->items[i]);
-    Array_free(other); // `self` now owns the entries
+	// append other's entries to self and take ownership of them
+	self->v.insert(self->v.end(), other->v.begin(), other->v.end());
+	Array_free(other); // container only; `self` now owns the entries
 }
 
 static int StringArray_indexOf(Array* self, char* str) {
-	for (int i=0; i<self->count; i++) {
-		if (exactMatch(static_cast<const char*>(self->items[i]), str)) return i;
+	for (int i=0; i<self->count(); i++) {
+		if (exactMatch(static_cast<const char*>(self->v[i]), str)) return i;
 	}
 	return -1;
 }
 static void StringArray_free(Array* self) {
-	for (int i=0; i<self->count; i++) {
-		free(self->items[i]);
+	for (int i=0; i<self->count(); i++) {
+		free(self->v[i]);
 	}
 	Array_free(self);
 }
@@ -175,24 +154,22 @@ static void Entry_free(Entry* self) {
 }
 
 static int EntryArray_indexOf(Array* self, char* path) {
-	for (int i=0; i<self->count; i++) {
-		Entry* entry = static_cast<Entry*>(self->items[i]);
+	for (int i=0; i<self->count(); i++) {
+		Entry* entry = static_cast<Entry*>(self->v[i]);
 		if (exactMatch(entry->path, path)) return i;
 	}
 	return -1;
 }
-static int EntryArray_sortEntry(const void* a, const void* b) {
-	Entry* item1 = *(Entry**)a;
-	Entry* item2 = *(Entry**)b;
-	return strcasecmp(item1->name, item2->name);
-}
 static void EntryArray_sort(Array* self) {
-	qsort(self->items, self->count, sizeof(void*), EntryArray_sortEntry);
+	// same not-stable, case-insensitive name ordering the old qsort gave us
+	std::sort(self->v.begin(), self->v.end(), [](void* a, void* b) {
+		return strcasecmp(static_cast<Entry*>(a)->name, static_cast<Entry*>(b)->name) < 0;
+	});
 }
 
 static void EntryArray_free(Array* self) {
-	for (int i=0; i<self->count; i++) {
-		Entry_free(static_cast<Entry*>(self->items[i]));
+	for (int i=0; i<self->count(); i++) {
+		Entry_free(static_cast<Entry*>(self->v[i]));
 	}
 	Array_free(self);
 }
@@ -262,8 +239,8 @@ static void Directory_index(Directory* self) {
 
             int resort = 0;
             int filter = 0;
-            for (int i = 0; i < self->entries->count; i++) {
-                Entry* entry = static_cast<Entry*>(self->entries->items[i]);
+            for (int i = 0; i < self->entries->count(); i++) {
+                Entry* entry = static_cast<Entry*>(self->entries->v[i]);
                 char* filename = strrchr(entry->path, '/') + 1;
                 const char* alias = Hash_get(map, filename);
                 if (alias) {
@@ -276,8 +253,8 @@ static void Directory_index(Directory* self) {
 
             if (filter) {
                 Array* entries = Array_new();
-                for (int i = 0; i < self->entries->count; i++) {
-                    Entry* entry = static_cast<Entry*>(self->entries->items[i]);
+                for (int i = 0; i < self->entries->count(); i++) {
+                    Entry* entry = static_cast<Entry*>(self->entries->v[i]);
                     if (hide(entry->name)) {
                         Entry_free(entry); // Ensure Entry_free handles all memory cleanup
                     } else {
@@ -294,8 +271,8 @@ static void Directory_index(Directory* self) {
     Entry* prior = NULL;
     int alpha = -1;
     int index = 0;
-    for (int i = 0; i < self->entries->count; i++) {
-        Entry* entry = static_cast<Entry*>(self->entries->items[i]);
+    for (int i = 0; i < self->entries->count(); i++) {
+        Entry* entry = static_cast<Entry*>(self->entries->v[i]);
         if (map) {
             char* filename = strrchr(entry->path, '/') + 1;
             const char* alias = Hash_get(map, filename);
@@ -392,8 +369,8 @@ static void DirectoryArray_pop(Array* self) {
 	Directory_free(static_cast<Directory*>(Array_pop(self)));
 }
 static void DirectoryArray_free(Array* self) {
-	for (int i=0; i<self->count; i++) {
-		Directory_free(static_cast<Directory*>(self->items[i]));
+	for (int i=0; i<self->count(); i++) {
+		Directory_free(static_cast<Directory*>(self->v[i]));
 	}
 	Array_free(self);
 }
@@ -430,15 +407,15 @@ static void Recent_free(Recent* self) {
 }
 
 static int RecentArray_indexOf(Array* self, char* str) {
-	for (int i=0; i<self->count; i++) {
-		Recent* item = static_cast<Recent*>(self->items[i]);
+	for (int i=0; i<self->count(); i++) {
+		Recent* item = static_cast<Recent*>(self->v[i]);
 		if (exactMatch(item->path, str)) return i;
 	}
 	return -1;
 }
 static void RecentArray_free(Array* self) {
-	for (int i=0; i<self->count; i++) {
-		Recent_free(static_cast<Recent*>(self->items[i]));
+	for (int i=0; i<self->count(); i++) {
+		Recent_free(static_cast<Recent*>(self->v[i]));
 	}
 	Array_free(self);
 }
@@ -473,8 +450,8 @@ static int startgame = 0;
 static void saveRecents(void) {
 	FILE* file = fopen(RECENT_PATH, "w");
 	if (file) {
-		for (int i=0; i<recents->count; i++) {
-			Recent* recent = static_cast<Recent*>(recents->items[i]);
+		for (int i=0; i<recents->count(); i++) {
+			Recent* recent = static_cast<Recent*>(recents->v[i]);
 			fputs(recent->path, file);
 			if (recent->alias) {
 				fputs("\t", file);
@@ -489,16 +466,16 @@ static void addRecent(char* path, char* alias) {
 	path += strlen(SDCARD_PATH); // makes paths platform agnostic
 	int id = RecentArray_indexOf(recents, path);
 	if (id==-1) { // add
-		while (recents->count>=MAX_RECENTS) {
+		while (recents->count()>=MAX_RECENTS) {
 			Recent_free(static_cast<Recent*>(Array_pop(recents)));
 		}
 		Array_unshift(recents, Recent_new(path, alias));
 	}
 	else if (id>0) { // bump to top
 		for (int i=id; i>0; i--) {
-			void* tmp = recents->items[i-1];
-			recents->items[i-1] = recents->items[i];
-			recents->items[i] = tmp;
+			void* tmp = recents->v[i-1];
+			recents->v[i-1] = recents->v[i];
+			recents->v[i] = tmp;
 		}
 	}
 	saveRecents();
@@ -614,7 +591,7 @@ static int hasRecents(void) {
 			char sd_path[256];
 			sprintf(sd_path, "%s%s", SDCARD_PATH, path);
 			if (exists(sd_path)) {
-				if (recents->count<MAX_RECENTS) {
+				if (recents->count()<MAX_RECENTS) {
 					// this logic replaces an existing disc from a multi-disc game with the last used
 					char m3u_path[256];
 					if (hasM3u(sd_path, m3u_path)) { // TODO: this might tank launch speed
@@ -624,8 +601,8 @@ static int hasRecents(void) {
 						tmp[0] = '\0';
 
 						int found = 0;
-						for (int i=0; i<parent_paths->count; i++) {
-							char* path = static_cast<char*>(parent_paths->items[i]);
+						for (int i=0; i<parent_paths->count(); i++) {
+							char* path = static_cast<char*>(parent_paths->v[i]);
 							if (prefixMatch(path, parent_path)) {
 								found = 1;
 								break;
@@ -720,8 +697,8 @@ static Array* getRoms()
 
         EntryArray_sort(emus);
         Entry* prev_entry = NULL;
-        for (int i = 0; i < emus->count; i++) {
-            Entry* entry = static_cast<Entry*>(emus->items[i]);
+        for (int i = 0; i < emus->count(); i++) {
+            Entry* entry = static_cast<Entry*>(emus->v[i]);
             if (prev_entry && exactMatch(prev_entry->name, entry->name)) {
                 Entry_free(entry);
                 continue;
@@ -735,7 +712,7 @@ static Array* getRoms()
 	// Handle mapping logic
     char map_path[256];
     snprintf(map_path, sizeof(map_path), "%s/map.txt", ROMS_PATH);
-    if (entries->count > 0 && exists(map_path)) {
+    if (entries->count() > 0 && exists(map_path)) {
         FILE* file = fopen(map_path, "r");
         if (file) {
             Hash* map = Hash_new();
@@ -757,8 +734,8 @@ static Array* getRoms()
             fclose(file);
 
             int resort = 0;
-            for (int i = 0; i < entries->count; i++) {
-                Entry* entry = static_cast<Entry*>(entries->items[i]);
+            for (int i = 0; i < entries->count(); i++) {
+                Entry* entry = static_cast<Entry*>(entries->v[i]);
                 char* filename = strrchr(entry->path, '/') + 1;
                 const char* alias = Hash_get(map, filename);
                 if (alias) {
@@ -801,7 +778,7 @@ static Array* getQuickEntries(void) {
 	Array* entries = Array_new();
 
 	// We assume Menu_init was already called and populated this
-	if (recents && recents->count)
+	if (recents && recents->count())
 		Array_push(entries, Entry_newNamed(FAUX_RECENT_PATH, ENTRY_DIR, "Recents"));
 
 	if (hasCollections())
@@ -854,7 +831,7 @@ static Array* getRoot(void) {
 
 	// Handle collections
 	if (hasCollections() && CFG_getShowCollections()) {
-        if (entries->count) {
+        if (entries->count()) {
             Array_push(root, Entry_new(COLLECTIONS_PATH, ENTRY_DIR));
         } else { // No visible systems, promote collections to root
 			Array *collections = getCollections();
@@ -893,8 +870,8 @@ static Entry* entryFromRecent(Recent* recent)
 
 static Array* getRecents(void) {
 	Array* entries = Array_new();
-	for (int i=0; i<recents->count; i++) {
-		Recent* recent = static_cast<Recent*>(recents->items[i]);
+	for (int i=0; i<recents->count(); i++) {
+		Recent* recent = static_cast<Recent*>(recents->v[i]);
 		Entry *entry = entryFromRecent(recent);
 		if(entry)
 			Array_push(entries, entry);
@@ -1338,7 +1315,7 @@ Array* pathToStack(const char* path) {
 	// Always include root directory
 	Directory* root_dir = Directory_new(SDCARD_PATH, 0);
 	root_dir->start = 0;
-	root_dir->end = (root_dir->entries->count < MAIN_ROW_COUNT) ? root_dir->entries->count : MAIN_ROW_COUNT;
+	root_dir->end = (root_dir->entries->count() < MAIN_ROW_COUNT) ? root_dir->entries->count() : MAIN_ROW_COUNT;
 	Array_push(array, root_dir);
 
 	if (exactMatch(path, SDCARD_PATH)) return array;
@@ -1373,22 +1350,22 @@ Array* pathToStack(const char* path) {
 
 		if (strcmp(segment, PLATFORM) == 0) {
 			// Merge with previous directory
-			if (array->count > 0) {
+			if (array->count() > 0) {
 				// Remove the previous directory
-				Directory* last = (Directory*)array->items[array->count - 1];
+				Directory* last = (Directory*)array->v[array->count() - 1];
 				Array_pop(array);
 				Directory_free(last); // assuming you have a Directory_free
 
 				// Replace with updated one using combined path
 				Directory* merged = Directory_new(temp_path, 0);
 				merged->start = 0;
-				merged->end = (merged->entries->count < MAIN_ROW_COUNT) ? merged->entries->count : MAIN_ROW_COUNT;
+				merged->end = (merged->entries->count() < MAIN_ROW_COUNT) ? merged->entries->count() : MAIN_ROW_COUNT;
 				Array_push(array, merged);
 			}
 		} else {
 			Directory* dir = Directory_new(temp_path, 0);
 			dir->start = 0;
-			dir->end = (dir->entries->count < MAIN_ROW_COUNT) ? dir->entries->count : MAIN_ROW_COUNT;
+			dir->end = (dir->entries->count() < MAIN_ROW_COUNT) ? dir->entries->count() : MAIN_ROW_COUNT;
 			Array_push(array, dir);
 		}
 
@@ -1429,8 +1406,8 @@ static void openDirectory(char* path, int auto_launch) {
 		int selected = 0;
 		int start = 0;
 		int end = 0;
-		if (top && top->entries->count>0) {
-			if (restore_depth==stack->count && top->selected==restore_relative) {
+		if (top && top->entries->count()>0) {
+			if (restore_depth==stack->count() && top->selected==restore_relative) {
 				selected = restore_selected;
 				start = restore_start;
 				end = restore_end;
@@ -1439,7 +1416,7 @@ static void openDirectory(char* path, int auto_launch) {
 
 		top = Directory_new(path, selected);
 		top->start = start;
-		top->end = end ? end : ((top->entries->count<MAIN_ROW_COUNT) ? top->entries->count : MAIN_ROW_COUNT);
+		top->end = end ? end : ((top->entries->count()<MAIN_ROW_COUNT) ? top->entries->count() : MAIN_ROW_COUNT);
 
 		Array_push(stack, top);
 	}
@@ -1452,7 +1429,7 @@ static void openDirectory(char* path, int auto_launch) {
 		DirectoryArray_free(stack);
 
 		stack = pathToStack(temp_path);
-		top = static_cast<Directory*>(stack->items[stack->count - 1]);
+		top = static_cast<Directory*>(stack->v[stack->count() - 1]);
 	}
 }
 
@@ -1461,8 +1438,8 @@ static void closeDirectory(void) {
 	restore_start = top->start;
 	restore_end = top->end;
 	DirectoryArray_pop(stack);
-	restore_depth = stack->count;
-	top = static_cast<Directory*>(stack->items[stack->count-1]);
+	restore_depth = stack->count();
+	top = static_cast<Directory*>(stack->v[stack->count()-1]);
 	restore_relative = top->selected;
 }
 
@@ -1556,7 +1533,7 @@ static void loadLast(void) { // call after loading root directory
 		last_path[(slash-last_path)] = '\0';
 	}
 
-	while (last->count>0) {
+	while (last->count()>0) {
 		char* path = static_cast<char*>(Array_pop(last));
 		if (!exactMatch(path, ROMS_PATH)) { // romsDir is effectively root as far as restoring state after a game
 			char collated_path[256];
@@ -1567,8 +1544,8 @@ static void loadLast(void) { // call after loading root directory
 				if (tmp) tmp[1] = '\0'; // 1 because we want to keep the opening parenthesis to avoid collating "Game Boy Color" and "Game Boy Advance" into "Game Boy"
 			}
 
-			for (int i=0; i<top->entries->count; i++) {
-				Entry* entry = static_cast<Entry*>(top->entries->items[i]);
+			for (int i=0; i<top->entries->count(); i++) {
+				Entry* entry = static_cast<Entry*>(top->entries->v[i]);
 
 				// NOTE: strlen() is required for collated_path, '\0' wasn't reading as NULL for some reason
 				if (exactMatch(entry->path, path) || (strlen(collated_path) && prefixMatch(collated_path, entry->path)) || (prefixMatch(COLLECTIONS_PATH, full_path) && suffixMatch(filename, entry->path))) {
@@ -1576,12 +1553,12 @@ static void loadLast(void) { // call after loading root directory
 					if (i>=top->end) {
 						top->start = i;
 						top->end = top->start + MAIN_ROW_COUNT;
-						if (top->end>top->entries->count) {
-							top->end = top->entries->count;
+						if (top->end>top->entries->count()) {
+							top->end = top->entries->count();
 							top->start = top->end - MAIN_ROW_COUNT;
 						}
 					}
-					if (last->count==0 && !exactMatch(entry->path, FAUX_RECENT_PATH) && !(!exactMatch(entry->path, COLLECTIONS_PATH) && prefixMatch(COLLECTIONS_PATH, entry->path))) break; // don't show contents of auto-launch dirs
+					if (last->count()==0 && !exactMatch(entry->path, FAUX_RECENT_PATH) && !(!exactMatch(entry->path, COLLECTIONS_PATH) && prefixMatch(COLLECTIONS_PATH, entry->path))) break; // don't show contents of auto-launch dirs
 
 					if (entry->type==ENTRY_DIR) {
 						openDirectory(entry->path, 0);
@@ -1595,8 +1572,8 @@ static void loadLast(void) { // call after loading root directory
 
 	StringArray_free(last);
 
-	if (top->selected >= 0 && top->selected < top->entries->count) {
-		Entry* selected_entry = static_cast<Entry*>(top->entries->items[top->selected]);
+	if (top->selected >= 0 && top->selected < top->entries->count()) {
+		Entry* selected_entry = static_cast<Entry*>(top->entries->v[top->selected]);
 		readyResume(selected_entry);
 	}
 }
@@ -2275,7 +2252,7 @@ int main (int argc, char *argv[]) {
 	int qm_col = 0;
 	int qm_slot = 0;
 	int qm_shift = 0;
-	int qm_slots = QUICK_SWITCHER_COUNT > quick->count ? quick->count : QUICK_SWITCHER_COUNT;
+	int qm_slots = QUICK_SWITCHER_COUNT > quick->count() ? quick->count() : QUICK_SWITCHER_COUNT;
 	// LOG_info("- menu init: %lu\n", SDL_GetTicks() - main_begin);
 
 	int lastScreen = SCREEN_OFF;
@@ -2332,7 +2309,7 @@ int main (int argc, char *argv[]) {
 		PAD_poll();
 
 		int selected = top->selected;
-		int total = top->entries->count;
+		int total = top->entries->count();
 
 		PWR_update(&dirty, &show_setting, NULL, NULL);
 
@@ -2354,7 +2331,7 @@ int main (int argc, char *argv[]) {
 		int gsanimdir = ANIM_NONE;
 
 		if (currentScreen == SCREEN_QUICKMENU) {
-			int qm_total = qm_row == 0 ? quick->count : quickActions->count;
+			int qm_total = qm_row == 0 ? quick->count() : quickActions->count();
 
 			if (PAD_justPressed(BTN_B) || PAD_tappedMenu(now)) {
 				currentScreen = SCREEN_GAMELIST;
@@ -2362,10 +2339,10 @@ int main (int argc, char *argv[]) {
 				dirty = 1;
 			}
 			else if (PAD_justReleased(BTN_A)) {
-				Entry* selected = static_cast<Entry*>(qm_row == 0 ? quick->items[qm_col] : quickActions->items[qm_col]);
+				Entry* selected = static_cast<Entry*>(qm_row == 0 ? quick->v[qm_col] : quickActions->v[qm_col]);
 				if(selected->type != ENTRY_DIP) {
 					currentScreen = SCREEN_GAMELIST;
-					total = top->entries->count;
+					total = top->entries->count();
 					// prevent restoring list state, game list screen currently isnt our nav origin
 					top->selected = 0;
 					top->start = 0;
@@ -2449,29 +2426,29 @@ int main (int argc, char *argv[]) {
 				dirty = 1;
 				folderbgchanged = 1; // The background painting code is a clusterfuck, just force a repaint here
 			}
-			else if (recents->count > 0 && PAD_justReleased(BTN_A)) {
+			else if (recents->count() > 0 && PAD_justReleased(BTN_A)) {
 				// this will drop us back into game switcher after leaving the game
 				putFile(GAME_SWITCHER_PERSIST_PATH, "unused");
 				startgame = 1;
-				Entry *selectedEntry = entryFromRecent(static_cast<Recent*>(recents->items[switcher_selected]));
+				Entry *selectedEntry = entryFromRecent(static_cast<Recent*>(recents->v[switcher_selected]));
 				should_resume = can_resume;
 				Entry_open(selectedEntry);
 				dirty = 1;
 				Entry_free(selectedEntry);
 			}
-			else if (recents->count > 0 && PAD_justReleased(BTN_Y)) {
+			else if (recents->count() > 0 && PAD_justReleased(BTN_Y)) {
 				// remove
-				Recent* recentEntry = static_cast<Recent*>(recents->items[switcher_selected--]);
+				Recent* recentEntry = static_cast<Recent*>(recents->v[switcher_selected--]);
 				Array_remove(recents, recentEntry);
 				Recent_free(recentEntry);
 				saveRecents();
 				if(switcher_selected < 0)
-					switcher_selected = recents->count - 1; // wrap
+					switcher_selected = recents->count() - 1; // wrap
 				dirty = 1;
 			}
 			else if (PAD_justPressed(BTN_RIGHT)) {
 				switcher_selected++;
-				if(switcher_selected == recents->count)
+				if(switcher_selected == recents->count())
 					switcher_selected = 0; // wrap
 				dirty = 1;
 				gsanimdir = SLIDE_LEFT;
@@ -2479,7 +2456,7 @@ int main (int argc, char *argv[]) {
 			else if (PAD_justPressed(BTN_LEFT)) {
 				switcher_selected--;
 				if(switcher_selected < 0)
-					switcher_selected = recents->count - 1; // wrap
+					switcher_selected = recents->count() - 1; // wrap
 				dirty = 1;
 				gsanimdir = SLIDE_RIGHT;
 			}
@@ -2566,7 +2543,7 @@ int main (int argc, char *argv[]) {
 			}
 
 			if (PAD_justRepeated(BTN_L1) && !PAD_isPressed(BTN_R1) && !PWR_ignoreSettingInput(BTN_L1, show_setting)) { // previous alpha
-				Entry* entry = static_cast<Entry*>(top->entries->items[selected]);
+				Entry* entry = static_cast<Entry*>(top->entries->v[selected]);
 				int i = entry->alpha-1;
 				if (i>=0) {
 					selected = (*top->alphas)[i];
@@ -2579,7 +2556,7 @@ int main (int argc, char *argv[]) {
 				}
 			}
 			else if (PAD_justRepeated(BTN_R1) && !PAD_isPressed(BTN_L1) && !PWR_ignoreSettingInput(BTN_R1, show_setting)) { // next alpha
-				Entry* entry = static_cast<Entry*>(top->entries->items[selected]);
+				Entry* entry = static_cast<Entry*>(top->entries->v[selected]);
 				int i = entry->alpha+1;
 				if (i<(int)top->alphas->size()) {
 					selected = (*top->alphas)[i];
@@ -2597,7 +2574,7 @@ int main (int argc, char *argv[]) {
 				dirty = 1;
 			}
 
-			Entry* entry = static_cast<Entry*>(top->entries->items[top->selected]);
+			Entry* entry = static_cast<Entry*>(top->entries->v[top->selected]);
 
 			if (dirty && total>0)
 				readyResume(entry);
@@ -2612,19 +2589,19 @@ int main (int argc, char *argv[]) {
 				Entry_open(entry);
 				if(entry->type == ENTRY_DIR) {
 					animationdirection = SLIDE_LEFT;
-					total = top->entries->count;
+					total = top->entries->count();
 				}
 				dirty = 1;
 
-				if (total>0) readyResume(static_cast<Entry*>(top->entries->items[top->selected]));
+				if (total>0) readyResume(static_cast<Entry*>(top->entries->v[top->selected]));
 			}
-			else if (PAD_justPressed(BTN_B) && stack->count>1) {
+			else if (PAD_justPressed(BTN_B) && stack->count()>1) {
 				closeDirectory();
 				animationdirection = SLIDE_RIGHT;
-				total = top->entries->count;
+				total = top->entries->count();
 				dirty = 1;
 
-				if (total>0) readyResume(static_cast<Entry*>(top->entries->items[top->selected]));
+				if (total>0) readyResume(static_cast<Entry*>(top->entries->v[top->selected]));
 			}
 		}
 
@@ -2658,7 +2635,7 @@ int main (int argc, char *argv[]) {
 					GFX_clearLayers(LAYER_THUMBNAIL);
 				}
 
-				Entry* current = static_cast<Entry*>(qm_row == 0 ? quick->items[qm_col] : quickActions->items[qm_col]);
+				Entry* current = static_cast<Entry*>(qm_row == 0 ? quick->v[qm_col] : quickActions->v[qm_col]);
 				char newBgPath[MAX_PATH];
 				char fallbackBgPath[MAX_PATH];
 
@@ -2711,10 +2688,10 @@ int main (int argc, char *argv[]) {
 					// just to keep selection visible.
 					// every display should be able to fit three items, we shift horizontally to accomodate.
 					ox -= qm_shift * (item_size + SCALE1(MENU_ITEM_MARGIN));
-					for (int c = 0; c < quick->count; c++)
+					for (int c = 0; c < quick->count(); c++)
 					{
 						SDL_Rect item_rect = {ox, oy, item_size, item_size};
-						Entry* item = static_cast<Entry*>(quick->items[c]);
+						Entry* item = static_cast<Entry*>(quick->v[c]);
 
 						SDL_Color text_color = uintToColour(THEME_COLOR4_255);
 						uint32_t item_color = THEME_COLOR3;
@@ -2758,11 +2735,11 @@ int main (int argc, char *argv[]) {
 
 					// secondary
 					ox = SCALE1(PADDING + MENU_MARGIN_X);
-					ox += (screen->w - SCALE1(PADDING + MENU_MARGIN_X + MENU_MARGIN_X + PADDING) - SCALE1(quickActions->count * PILL_SIZE) - SCALE1((quickActions->count - 1) * MENU_TOGGLE_MARGIN))/2;
+					ox += (screen->w - SCALE1(PADDING + MENU_MARGIN_X + MENU_MARGIN_X + PADDING) - SCALE1(quickActions->count() * PILL_SIZE) - SCALE1((quickActions->count() - 1) * MENU_TOGGLE_MARGIN))/2;
 					oy = SCALE1(PADDING + PILL_SIZE + BUTTON_MARGIN + MENU_MARGIN_Y + MENU_LINE_MARGIN) + item_size + item_extra_y / 2;
-					for (int c = 0; c < quickActions->count; c++) {
+					for (int c = 0; c < quickActions->count(); c++) {
 						SDL_Rect item_rect = {ox, oy, SCALE1(PILL_SIZE), SCALE1(PILL_SIZE)};
-						Entry* item = static_cast<Entry*>(quickActions->items[c]);
+						Entry* item = static_cast<Entry*>(quickActions->v[c]);
 
 						SDL_Color text_color = uintToColour(THEME_COLOR4_255);
 						uint32_t item_color = THEME_COLOR3;
@@ -2820,8 +2797,8 @@ int main (int argc, char *argv[]) {
 				oy = 0;
 
 				// For all recents with resumable state (i.e. has savegame), show game switcher carousel
-				if(recents->count > 0) {
-					Entry *selectedEntry = entryFromRecent(static_cast<Recent*>(recents->items[switcher_selected]));
+				if(recents->count() > 0) {
+					Entry *selectedEntry = entryFromRecent(static_cast<Recent*>(recents->v[switcher_selected]));
 					readyResume(selectedEntry);
 					// title pill
 					{
@@ -2946,7 +2923,7 @@ int main (int argc, char *argv[]) {
 			}
 			else { // if currentscreen == SCREEN_GAMELIST
 				// background and game art file path stuff
-				Entry* entry = static_cast<Entry*>(top->entries->items[top->selected]);
+				Entry* entry = static_cast<Entry*>(top->entries->v[top->selected]);
 				assert(entry);
 				char tmp_path[MAX_PATH];
 				strncpy(tmp_path, entry->path, sizeof(tmp_path) - 1);
@@ -2971,7 +2948,7 @@ int main (int argc, char *argv[]) {
 				static int lastType = -1;
 
 				// this is only a choice on the root folder
-				list_show_entry_names = stack->count > 1 || CFG_getShowFolderNamesAtRoot();
+				list_show_entry_names = stack->count() > 1 || CFG_getShowFolderNamesAtRoot();
 
 				// load folder background
 				char defaultBgPath[512];
@@ -3032,12 +3009,12 @@ int main (int argc, char *argv[]) {
 					NULL }, 0, screen, 0);
 
 				if (total==0) {
-					if (stack->count>1) {
+					if (stack->count()>1) {
 						GFX_blitButtonGroup((char**)(const char*[]){ "B","BACK",  NULL }, 0, screen, 1);
 					}
 				}
 				else {
-					if (stack->count>1) {
+					if (stack->count()>1) {
 						GFX_blitButtonGroup((char**)(const char*[]){ "B","BACK", "A","OPEN", NULL }, 1, screen, 1);
 					}
 					else {
@@ -3052,13 +3029,13 @@ int main (int argc, char *argv[]) {
 					targetY = selected_row * PILL_SIZE;
 					SDL_Color text_color = uintToColour(THEME_COLOR4_255); // list text color
 					for (int i = top->start, j = 0; i < top->end; i++, j++) {
-						Entry* entry = static_cast<Entry*>(top->entries->items[i]);
+						Entry* entry = static_cast<Entry*>(top->entries->v[i]);
 						char* entry_name = entry->name;
 						char* entry_unique = entry->unique;
 						int available_width = MAX(0,(had_thumb ? ox + SCALE1(BUTTON_MARGIN) : screen->w - SCALE1(BUTTON_MARGIN)) - SCALE1(PADDING * 2));
 						bool row_is_selected = (j == selected_row);
 						bool row_is_top = (i == top->start);
-						bool row_has_moved = (previous_row != selected_row || previous_depth != stack->count);
+						bool row_has_moved = (previous_row != selected_row || previous_depth != stack->count());
 						if (row_is_top && !(had_thumb))
 							available_width -= ow;
 
@@ -3088,7 +3065,7 @@ int main (int argc, char *argv[]) {
 						if (row_is_selected) {
 							is_scrolling = list_show_entry_names && GFX_textShouldScroll(font.large,display_name, max_width - SCALE1(BUTTON_PADDING*2), fontMutex);
 							GFX_resetScrollText();
-							bool should_animate = previous_depth == stack->count;
+							bool should_animate = previous_depth == stack->count();
 							SDL_LockMutex(animMutex);
 							if(globalpill) {
 								SDL_FreeSurface(globalpill);
@@ -3138,7 +3115,7 @@ int main (int argc, char *argv[]) {
 					}
 
 					previous_row = selected_row;
-					previous_depth = stack->count;
+					previous_depth = stack->count();
 				}
 				else {
 					// TODO: for some reason screen's dimensions end up being 0x0 in GFX_blitMessage...
@@ -3305,7 +3282,7 @@ int main (int argc, char *argv[]) {
 			if (currentScreen != SCREEN_GAMESWITCHER && currentScreen != SCREEN_QUICKMENU) {
 				if(is_scrolling && pillanimdone && currentAnimQueueSize < 1) {
 					int ow = GFX_blitHardwareGroup(screen, show_setting);
-					Entry* entry = static_cast<Entry*>(top->entries->items[top->selected]);
+					Entry* entry = static_cast<Entry*>(top->entries->v[top->selected]);
 					trimSortingMeta(&entry->name);
 					char* entry_text = entry->name;
 					if (entry->unique) {
@@ -3385,7 +3362,7 @@ int main (int argc, char *argv[]) {
 		if (has_hdmi!=had_hdmi) {
 			had_hdmi = has_hdmi;
 
-			Entry* entry = static_cast<Entry*>(top->entries->items[top->selected]);
+			Entry* entry = static_cast<Entry*>(top->entries->v[top->selected]);
 			LOG_info("restarting after HDMI change... (%s)\n", entry->path);
 			saveLast(entry->path); // NOTE: doesn't work in Recents (by design)
 			sleep(4);
