@@ -28,6 +28,12 @@ typedef struct DeviceDescriptor {
 	int joy_r3;                // JOY_R3
 	int joy_plus;              // JOY_PLUS
 	int joy_minus;             // JOY_MINUS
+	// sysfs hardware nodes that differ across platforms -- the seams a future
+	// device redefines. Identical for Brick and Smart Pro; tg5050, for example,
+	// uses cpu4 not cpu0, thermal_zone5 not zone2, gpio236 not gpio227.
+	const char* cpu_speed_path;
+	const char* gpu_temp_path;
+	const char* rumble_gpio_path;
 } DeviceDescriptor;
 extern const DeviceDescriptor* deviceModel;
 

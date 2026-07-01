@@ -26,17 +26,30 @@
 
 int is_brick = 0;
 
+// Shared tg5040 hardware node paths -- the same on Brick and Smart Pro. These
+// are exactly the seams a different platform redefines (tg5050 would use
+// cpu4/thermal_zone5/gpio236 here), so they belong to the descriptor.
+#define TG5040_CPU_SPEED_PATH "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq"
+#define TG5040_GPU_TEMP_PATH  "/sys/devices/virtual/thermal/thermal_zone2/temp"
+#define TG5040_RUMBLE_GPIO    "/sys/class/gpio/gpio227/value"
+
 // The two tg5040 models as data. They differ only in screen geometry, menu
-// layout, and a few joystick codes; everything else in this platform is shared.
+// layout, and a few joystick codes; the hardware paths below are shared.
 static const DeviceDescriptor TG5040_BRICK = {
 	.scale = 3, .width = 1024, .height = 768,
 	.main_row_count = 7, .quick_switcher_count = 3, .padding = 5,
 	.joy_l3 = 9, .joy_r3 = 10, .joy_plus = 14, .joy_minus = 13,
+	.cpu_speed_path = TG5040_CPU_SPEED_PATH,
+	.gpu_temp_path = TG5040_GPU_TEMP_PATH,
+	.rumble_gpio_path = TG5040_RUMBLE_GPIO,
 };
 static const DeviceDescriptor TG5040_SMART_PRO = {
 	.scale = 2, .width = 1280, .height = 720,
 	.main_row_count = 10, .quick_switcher_count = 4, .padding = 10,
 	.joy_l3 = JOY_NA, .joy_r3 = JOY_NA, .joy_plus = 128, .joy_minus = 129,
+	.cpu_speed_path = TG5040_CPU_SPEED_PATH,
+	.gpu_temp_path = TG5040_GPU_TEMP_PATH,
+	.rumble_gpio_path = TG5040_RUMBLE_GPIO,
 };
 // Default to Smart Pro so the geometry/button macros are valid even before
 // init runs; resolveDeviceModel() refines it once DEVICE is known.
@@ -146,11 +159,11 @@ void PLAT_getCPUTemp() {
 
 void PLAT_getCPUSpeed()
 {
-	perf.cpu_speed = getInt("/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq")/1000;
+	perf.cpu_speed = getInt(deviceModel->cpu_speed_path)/1000;
 }
 
 void PLAT_getGPUTemp() {
-	perf.gpu_temp = getInt("/sys/devices/virtual/thermal/thermal_zone2/temp")/1000;
+	perf.gpu_temp = getInt(deviceModel->gpu_temp_path)/1000;
 }
 
 void PLAT_getGPUSpeed() {
@@ -333,7 +346,6 @@ void PLAT_setCPUSpeed(int speed) {
 #define MAX_STRENGTH 0xFFFF
 #define MIN_VOLTAGE 500000
 #define MAX_VOLTAGE 3300000
-#define RUMBLE_PATH "/sys/class/gpio/gpio227/value"
 #define RUMBLE_VOLTAGE_PATH "/sys/class/motor/voltage"
 
 void PLAT_setRumble(int strength) {
@@ -349,7 +361,7 @@ void PLAT_setRumble(int strength) {
 
 	// enable rumble - removed the FN switch disabling haptics
 	// did not make sense 
-	putInt(RUMBLE_PATH, (strength) ? 1 : 0);
+	putInt(deviceModel->rumble_gpio_path, (strength) ? 1 : 0);
 }
 
 int PLAT_pickSampleRate(int requested, int max) {
