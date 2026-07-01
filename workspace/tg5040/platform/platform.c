@@ -25,17 +25,38 @@
 #include <dirent.h>
 
 int is_brick = 0;
+
+// The two tg5040 models as data. They differ only in screen geometry, menu
+// layout, and a few joystick codes; everything else in this platform is shared.
+static const DeviceDescriptor TG5040_BRICK = {
+	.scale = 3, .width = 1024, .height = 768,
+	.main_row_count = 7, .quick_switcher_count = 3, .padding = 5,
+	.joy_l3 = 9, .joy_r3 = 10, .joy_plus = 14, .joy_minus = 13,
+};
+static const DeviceDescriptor TG5040_SMART_PRO = {
+	.scale = 2, .width = 1280, .height = 720,
+	.main_row_count = 10, .quick_switcher_count = 4, .padding = 10,
+	.joy_l3 = JOY_NA, .joy_r3 = JOY_NA, .joy_plus = 128, .joy_minus = 129,
+};
+// Default to Smart Pro so the geometry/button macros are valid even before
+// init runs; resolveDeviceModel() refines it once DEVICE is known.
+const DeviceDescriptor* deviceModel = &TG5040_SMART_PRO;
+
+// Single source of truth for which model we're on. Sets both is_brick (kept for
+// the handful of code paths that still branch on it) and the active descriptor.
+static void resolveDeviceModel(void) {
+	is_brick = exactMatch("brick", getenv("DEVICE"));
+	deviceModel = is_brick ? &TG5040_BRICK : &TG5040_SMART_PRO;
+}
+
 void PLAT_initPlatform(void) {
-	// TODO: replace with something that doesnt bleed out of tg5040 scope
-	char *device = getenv("DEVICE");
-	is_brick = exactMatch("brick", device);
+	resolveDeviceModel();
 }
 
 static SDL_Joystick **joysticks = NULL;
 static int num_joysticks = 0;
 void PLAT_initInput(void) {
-	char* device = getenv("DEVICE");
-	is_brick = exactMatch("brick", device);
+	resolveDeviceModel();
 	if(SDL_InitSubSystem(SDL_INIT_JOYSTICK) < 0)
 		LOG_error("Failed initializing joysticks: %s\n", SDL_GetError());
 	num_joysticks = SDL_NumJoysticks();
@@ -373,8 +394,7 @@ ConnectionStrength PLAT_connectionStrength(void) {
 }
 
 void PLAT_initDefaultLeds() {
-	char* device = getenv("DEVICE");
-	is_brick = exactMatch("brick", device);
+	resolveDeviceModel();
 	if(is_brick) {
 	lightsDefault[0] = (LightSettings) {
 		"FN 1 key",
@@ -479,8 +499,7 @@ void PLAT_initDefaultLeds() {
 }
 void PLAT_initLeds(LightSettings *lights) 
 {
-	char* device = getenv("DEVICE");
-	is_brick = exactMatch("brick", device);
+	resolveDeviceModel();
 
 	PLAT_initDefaultLeds();
 	FILE *file;

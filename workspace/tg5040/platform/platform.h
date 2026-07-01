@@ -13,6 +13,24 @@
 
 extern int is_brick;
 
+// A device model is described by data, not code. The tg5040 platform ships two
+// models -- the TrimUI Brick and the Smart Pro -- that differ only in the values
+// below; is_brick selects which descriptor is active at runtime. Adding a device
+// becomes a matter of adding a descriptor rather than another is_brick ternary.
+typedef struct DeviceDescriptor {
+	int scale;                 // FIXED_SCALE
+	int width;                 // FIXED_WIDTH
+	int height;                // FIXED_HEIGHT
+	int main_row_count;        // MAIN_ROW_COUNT
+	int quick_switcher_count;  // QUICK_SWITCHER_COUNT
+	int padding;               // PADDING
+	int joy_l3;                // JOY_L3
+	int joy_r3;                // JOY_R3
+	int joy_plus;              // JOY_PLUS
+	int joy_minus;             // JOY_MINUS
+} DeviceDescriptor;
+extern const DeviceDescriptor* deviceModel;
+
 ///////////////////////////////
 
 #define BUTTON_UP		BUTTON_NA
@@ -89,13 +107,13 @@ extern int is_brick;
 #define JOY_R1			5
 #define JOY_L2			JOY_NA
 #define JOY_R2			JOY_NA
-#define JOY_L3			(is_brick?9:JOY_NA)
-#define JOY_R3			(is_brick?10:JOY_NA)
+#define JOY_L3			(deviceModel->joy_l3)
+#define JOY_R3			(deviceModel->joy_r3)
 
 #define JOY_MENU		8
 #define JOY_POWER		102
-#define JOY_PLUS		(is_brick?14:128)
-#define JOY_MINUS		(is_brick?13:129)
+#define JOY_PLUS		(deviceModel->joy_plus)
+#define JOY_MINUS		(deviceModel->joy_minus)
 
 ///////////////////////////////
 
@@ -120,9 +138,9 @@ extern int is_brick;
 
 ///////////////////////////////
 
-#define FIXED_SCALE 	(is_brick?3:2)
-#define FIXED_WIDTH		(is_brick?1024:1280)
-#define FIXED_HEIGHT	(is_brick?768:720)
+#define FIXED_SCALE 	(deviceModel->scale)
+#define FIXED_WIDTH		(deviceModel->width)
+#define FIXED_HEIGHT	(deviceModel->height)
 #define FIXED_BPP		2
 #define FIXED_DEPTH		(FIXED_BPP * 8)
 #define FIXED_PITCH		(FIXED_WIDTH * FIXED_BPP)
@@ -130,9 +148,9 @@ extern int is_brick;
 
 ///////////////////////////////
 
-#define MAIN_ROW_COUNT (is_brick ? 7 : 10)
-#define QUICK_SWITCHER_COUNT (is_brick ? 3 : 4)
-#define PADDING (is_brick ? 5 : 10)
+#define MAIN_ROW_COUNT (deviceModel->main_row_count)
+#define QUICK_SWITCHER_COUNT (deviceModel->quick_switcher_count)
+#define PADDING (deviceModel->padding)
 
 ///////////////////////////////
 
