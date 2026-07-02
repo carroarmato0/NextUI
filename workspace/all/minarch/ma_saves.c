@@ -209,8 +209,8 @@ int State_read(void) { // from picoarch
 	size_t state_size = core.serialize_size();
 	if (!state_size) return 0;
 
-	int was_ff = fast_forward;
-	fast_forward = 0;
+	int was_ff = ff.active;
+	ff.active = 0;
 
 	void *state = calloc(1, state_size);
 	if (!state) {
@@ -297,7 +297,7 @@ error:
 	if (state) free(state);
 	if (state_file) fclose(state_file);
 #endif
-	fast_forward = was_ff;
+	ff.active = was_ff;
 	return success;
 }
 
@@ -313,8 +313,8 @@ int State_write(void) { // from picoarch
 	size_t state_size = core.serialize_size();
 	if (!state_size) return 0;
 
-	int was_ff = fast_forward;
-	fast_forward = 0;
+	int was_ff = ff.active;
+	ff.active = 0;
 
 	void *state = calloc(1, state_size);
 	if (!state) {
@@ -364,7 +364,7 @@ error:
 #endif
 
 	sync();
-	fast_forward = was_ff;
+	ff.active = was_ff;
 	return success;
 }
 

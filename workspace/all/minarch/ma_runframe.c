@@ -28,7 +28,7 @@ static void limitFF(void) {
 	}
 
 	uint64_t now = getMicroseconds();
-	if (fast_forward && max_ff_speed) {
+	if (ff.active && max_ff_speed) {
 		if (last_time == 0) last_time = now;
 		int elapsed = now - last_time;
 		if (elapsed>0 && elapsed<0x80000) {
@@ -47,20 +47,20 @@ static void limitFF(void) {
 
 void run_frame(void) {
 	// if rewind is toggled, fast-forward toggle must stay off; fast-forward hold pauses rewind
-	int do_rewind = (rewind_pressed || rewind_toggle) && !(rewind_toggle && ff_hold_active);
+	int do_rewind = (rewind_pressed || rewind_toggle) && !(rewind_toggle && ff.hold_active);
 	if (do_rewind) {
 		int was_rewinding = rewinding;
 		int rewind_result = Rewind_step_back();
 		if (rewind_result == REWIND_STEP_OK) {
 			// Actually stepped back - run one frame to render the restored state
 			rewinding = 1;
-			fast_forward = 0;
+			ff.active = 0;
 			core.run();
 		}
 		else if (rewind_result == REWIND_STEP_CADENCE) {
 			// Waiting for cadence - don't run core, just re-render current frame
 			rewinding = 1;
-			fast_forward = 0;
+			ff.active = 0;
 			// Poll input manually since core.run() isn't called
 			input_poll_callback();
 			// Skip core.run() entirely to avoid advancing the game
@@ -75,9 +75,9 @@ void run_frame(void) {
 			} else {
 				// Buffer empty: auto untoggle rewind, resume FF if it was paused for a hold
 				if (rewind_toggle) rewind_toggle = 0;
-				if (ff_paused_by_rewind_hold && ff_toggled) {
-					ff_paused_by_rewind_hold = 0;
-					fast_forward = setFastForward(1);
+				if (ff.paused_by_rewind_hold && ff.toggled) {
+					ff.paused_by_rewind_hold = 0;
+					ff.active = setFastForward(1);
 				}
 				if (was_rewinding) {
 					rewinding = 1;
@@ -92,10 +92,10 @@ void run_frame(void) {
 	else {
 		Rewind_sync_encode_state();
 		rewinding = 0;
-		if (ff_paused_by_rewind_hold && !rewind_pressed) {
+		if (ff.paused_by_rewind_hold && !rewind_pressed) {
 			// resume fast forward after hold rewind ends
-			if (ff_toggled) fast_forward = setFastForward(1);
-			ff_paused_by_rewind_hold = 0;
+			if (ff.toggled) ff.active = setFastForward(1);
+			ff.paused_by_rewind_hold = 0;
 		}
 
 		core.run();

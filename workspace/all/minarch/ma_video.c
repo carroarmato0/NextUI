@@ -746,7 +746,7 @@ static void video_refresh_callback_main(const void *data, unsigned width, unsign
 	// 14 will let GB hit 10x but NES and SNES will drop to 1.5x at 30fps (not sure why)
 	// but 10 hurts PS...
 	// TODO: 10 was based on rg35xx, probably different results on other supported platforms
-	if (fast_forward && SDL_GetTicks()-last_flip_time<10) return;
+	if (ff.active && SDL_GetTicks()-last_flip_time<10) return;
 	
 	// FFVII menus 
 	// 16: 30/200
@@ -979,7 +979,7 @@ void video_refresh_callback(const void* data, unsigned width, unsigned height, s
 	pitch = width * sizeof(Uint32);
 
 	// Set ambient lighting color (if enabled)
-	if (ambient_mode && !fast_forward && data) {
+	if (ambient_mode && !ff.active && data) {
 		GFX_setAmbientColor(data, width, height, pitch, ambient_mode);
 	}
 

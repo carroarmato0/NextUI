@@ -143,7 +143,7 @@ void Config_syncFrontend(char* key, int value) {
 		i = FE_OPT_MAXFF;
 	}
 	else if (exactMatch(key,config.frontend.options[FE_OPT_FF_AUDIO].key)) {
-		ff_audio = value;
+		ff.audio = value;
 		i = FE_OPT_FF_AUDIO;
 	}
 	else if (exactMatch(key,config.frontend.options[FE_OPT_REWIND_ENABLE].key)) {
@@ -195,7 +195,7 @@ void Config_syncFrontend(char* key, int value) {
 			rewind_pressed = 0;
 			Rewind_sync_encode_state();
 			rewinding = 0;
-			ff_paused_by_rewind_hold = 0;
+			ff.paused_by_rewind_hold = 0;
 		}
 	}
 }
