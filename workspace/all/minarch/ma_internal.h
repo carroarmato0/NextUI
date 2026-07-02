@@ -120,12 +120,16 @@ extern int sync_ref;
 extern int max_ff_speed;
 extern int overclock;
 
-extern int rewind_cfg_enable;
-extern int rewind_cfg_buffer_mb;
-extern int rewind_cfg_granularity;
-extern int rewind_cfg_audio;
-extern int rewind_cfg_compress;
-extern int rewind_cfg_lz4_acceleration;
+// Rewind configuration, grouped out of the flat global soup.
+typedef struct RewindConfig {
+	int enable;
+	int buffer_mb;
+	int granularity;
+	int audio;
+	int compress;
+	int lz4_acceleration;
+} RewindConfig;
+extern RewindConfig rewind_cfg;
 extern int rewind_init_ready;
 
 #include "ma_rewind.h"

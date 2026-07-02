@@ -264,11 +264,11 @@ static int Rewind_compress_state(const uint8_t *src, size_t *dest_len, int *is_k
 int Rewind_init(size_t state_size) {
 	Rewind_free();
 	// pull current option values directly
-	int enable = rewind_cfg_enable;
-	int buf_mb = rewind_cfg_buffer_mb;
-	int gran = rewind_cfg_granularity;
-	int audio = rewind_cfg_audio;
-	int compress = rewind_cfg_compress;
+	int enable = rewind_cfg.enable;
+	int buf_mb = rewind_cfg.buffer_mb;
+	int gran = rewind_cfg.granularity;
+	int audio = rewind_cfg.audio;
+	int compress = rewind_cfg.compress;
 	if (!enable) {
 		return 0;
 	}
@@ -289,7 +289,7 @@ int Rewind_init(size_t state_size) {
 			state_size, rewind_ctx.capacity);
 		rewind_ctx.compress = 1;
 	}
-	int accel = rewind_cfg_lz4_acceleration;
+	int accel = rewind_cfg.lz4_acceleration;
 	if (accel < 1) accel = 1;
 	if (accel > REWIND_MAX_LZ4_ACCELERATION) accel = REWIND_MAX_LZ4_ACCELERATION;
 	rewind_ctx.lz4_acceleration = accel;

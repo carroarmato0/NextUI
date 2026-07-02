@@ -178,12 +178,12 @@ void Config_syncFrontend(char* key, int value) {
 			parsed = strtol(sval, NULL, 10);
 		}
 		switch (i) {
-			case FE_OPT_REWIND_ENABLE: rewind_cfg_enable = parsed; break;
-			case FE_OPT_REWIND_BUFFER: rewind_cfg_buffer_mb = parsed; break;
-			case FE_OPT_REWIND_GRANULARITY: rewind_cfg_granularity = parsed; break;
-			case FE_OPT_REWIND_AUDIO: rewind_cfg_audio = parsed; break;
-			case FE_OPT_REWIND_COMPRESSION: rewind_cfg_compress = parsed; break;
-			case FE_OPT_REWIND_COMPRESSION_ACCEL: rewind_cfg_lz4_acceleration = parsed; break;
+			case FE_OPT_REWIND_ENABLE: rewind_cfg.enable = parsed; break;
+			case FE_OPT_REWIND_BUFFER: rewind_cfg.buffer_mb = parsed; break;
+			case FE_OPT_REWIND_GRANULARITY: rewind_cfg.granularity = parsed; break;
+			case FE_OPT_REWIND_AUDIO: rewind_cfg.audio = parsed; break;
+			case FE_OPT_REWIND_COMPRESSION: rewind_cfg.compress = parsed; break;
+			case FE_OPT_REWIND_COMPRESSION_ACCEL: rewind_cfg.lz4_acceleration = parsed; break;
 		}
 		// Defer Rewind_init until after the explicit init in main(), otherwise FBN crashes
 		if (rewind_init_ready) {
