@@ -27,19 +27,6 @@ extern "C" {
 #include "config.h"
 }
 
-// ---------------------------------------------------------------------------
-// POC SCAFFOLDING (temporary)
-//
-// The background/thumbnail image loaders and the pill-animation worker use a
-// hand-rolled multi-threaded task queue that has latent memory-corruption bugs
-// (a stray write that smashes the stack / dynamic-linker state; benign under the
-// old C build, fatal once compiled as C++). For the C++ port POC we disable
-// those worker threads and run the launcher without async image loading,
-// thumbnails, backgrounds and the pill animation. These are to be reintroduced
-// later with a correct, thread-safe implementation. Grep NEXTUI_POC_NO_WORKERS.
-// ---------------------------------------------------------------------------
-#define NEXTUI_POC_NO_WORKERS 1
-
 ///////////////////////////////////////
 
 static void StringArray_free(std::vector<char*>& self) {
@@ -1555,29 +1542,7 @@ enum {
 
 typedef void (*BackgroundLoadedCallback)(SDL_Surface* surface);
 
-typedef struct {
-    char imagePath[MAX_PATH];
-    BackgroundLoadedCallback callback;
-    void* userData;
-} LoadBackgroundTask;
-
-typedef struct finishedTask {
-	int startX;
-	int targetX;
-	int startY;
-	int targetY;
-	int targetTextY;
-	int move_y;
-	int move_w;
-	int move_h;
-	int frames;
-	int done;
-	void* userData;
-	  char *entry_name;
-	SDL_Rect dst;
-} finishedTask;
-
-typedef void (*AnimTaskCallback)(finishedTask *task);
+// The pill-animation producer fills one of these and hands it to animPill().
 typedef struct AnimTask {
 	int startX;
 	int targetX;
@@ -1587,46 +1552,13 @@ typedef struct AnimTask {
 	int move_w;
 	int move_h;
 	int frames;
-	AnimTaskCallback callback;
-	void* userData;
-	 char *entry_name;
-	SDL_Rect dst;
+	char *entry_name;
 } AnimTask;
-
-typedef struct TaskNode {
-    LoadBackgroundTask* task;
-    struct TaskNode* next;
-} TaskNode;
-typedef struct AnimTaskNode {
-	AnimTask* task;
-    struct AnimTaskNode* next;
-} AnimTaskNode;
-
-static TaskNode* taskBGQueueHead = NULL;
-static TaskNode* taskBGQueueTail = NULL;
-static TaskNode* taskThumbQueueHead = NULL;
-static TaskNode* taskThumbQueueTail = NULL;
-static AnimTaskNode* animTaskQueueHead = NULL;
-static AnimTaskNode* animTtaskQueueTail = NULL;
-static SDL_mutex* bgqueueMutex = NULL;
-static SDL_mutex* thumbqueueMutex = NULL;
-static SDL_mutex* animqueueMutex = NULL;
-static SDL_cond* bgqueueCond = NULL;
-static SDL_cond* thumbqueueCond = NULL;
-static SDL_cond* animqueueCond = NULL;
 
 static SDL_mutex* bgMutex = NULL;
 static SDL_mutex* thumbMutex = NULL;
 static SDL_mutex* animMutex = NULL;
-static SDL_mutex* frameMutex = NULL;
 static SDL_mutex* fontMutex = NULL;
-static SDL_cond* flipCond = NULL;
-
-static SDL_Thread* bgLoadThread = NULL;
-static SDL_Thread* thumbLoadThread = NULL;
-static SDL_Thread* animWorkerThread = NULL;
-
-static SDL_atomic_t workerThreadsShutdown; // Flag to signal threads to exit (atomic for thread safety)
 
 static SDL_Surface* folderbgbmp = NULL;
 static SDL_Surface* thumbbmp = NULL;
@@ -1675,164 +1607,6 @@ static void updatePillTextSurface(const char* entry_name, int move_w, SDL_Color 
 }
 int folderbgchanged=0;
 int thumbchanged=0;
-
-// queue a new image load task :D
-#define MAX_QUEUE_SIZE 1
-
-int currentBGQueueSize = 0;
-int currentThumbQueueSize = 0;
-int currentAnimQueueSize = 0;
-
-void enqueueBGTask(LoadBackgroundTask* task) {
-	SDL_LockMutex(bgqueueMutex);
-    TaskNode* node = (TaskNode*)malloc(sizeof(TaskNode));
-    node->task = task;
-    node->next = NULL;
-
-    // If queue is full, drop the oldest task (head)
-    if (currentBGQueueSize >= MAX_QUEUE_SIZE) {
-        TaskNode* oldNode = taskBGQueueHead;
-        if (oldNode) {
-            taskBGQueueHead = oldNode->next;
-            if (!taskBGQueueHead) {
-                taskBGQueueTail = NULL;
-            }
-            if (oldNode->task) {
-                free(oldNode->task);  // Only if task was malloc'd
-            }
-            free(oldNode);
-            currentBGQueueSize--;
-        }
-    }
-
-    // Enqueue the new task
-    if (taskBGQueueTail) {
-        taskBGQueueTail->next = node;
-        taskBGQueueTail = node;
-    } else {
-        taskBGQueueHead = taskBGQueueTail = node;
-    }
-
-    currentBGQueueSize++;
-    SDL_CondSignal(bgqueueCond);
-    SDL_UnlockMutex(bgqueueMutex);
-}
-void enqueueThumbTask(LoadBackgroundTask* task) {
-	SDL_LockMutex(thumbqueueMutex);
-    TaskNode* node = (TaskNode*)malloc(sizeof(TaskNode));
-    node->task = task;
-    node->next = NULL;
-
-    // If queue is full, drop the oldest task (head)
-    if (currentThumbQueueSize >= MAX_QUEUE_SIZE) {
-        TaskNode* oldNode = taskThumbQueueHead;
-        if (oldNode) {
-            taskThumbQueueHead = oldNode->next;
-            if (!taskThumbQueueHead) {
-                taskThumbQueueTail = NULL;
-            }
-            if (oldNode->task) {
-                free(oldNode->task);  // Only if task was malloc'd
-            }
-            free(oldNode);
-            currentThumbQueueSize--;
-        }
-    }
-
-    // Enqueue the new task
-    if (taskThumbQueueTail) {
-        taskThumbQueueTail->next = node;
-        taskThumbQueueTail = node;
-    } else {
-        taskThumbQueueHead = taskThumbQueueTail = node;
-    }
-
-    currentThumbQueueSize++;
-    SDL_CondSignal(thumbqueueCond);
-    SDL_UnlockMutex(thumbqueueMutex);
-}
-
-// Worker thread
-int BGLoadWorker(void* unused) {
-    while (!SDL_AtomicGet(&workerThreadsShutdown)) {
-        SDL_LockMutex(bgqueueMutex);
-        while (!taskBGQueueHead && !SDL_AtomicGet(&workerThreadsShutdown)) {
-        	SDL_CondWait(bgqueueCond, bgqueueMutex);
-        }
-        if (SDL_AtomicGet(&workerThreadsShutdown)) {
-            SDL_UnlockMutex(bgqueueMutex);
-            break;
-        }
-        TaskNode* node = taskBGQueueHead;
-        taskBGQueueHead = node->next;
-        if (!taskBGQueueHead) taskBGQueueTail = NULL;
-        SDL_UnlockMutex(bgqueueMutex);
-		// give processor lil space in between queue items for other shit
-		//SDL_Delay(100);
-        LoadBackgroundTask* task = node->task;
-        free(node);
-
-        SDL_Surface* result = NULL;
-        if (access(task->imagePath, F_OK) == 0) {
-            SDL_Surface* image = IMG_Load(task->imagePath);
-            if (image) {
-                SDL_Surface* imageRGBA = SDL_ConvertSurfaceFormat(image, screen->format->format, 0);
-                SDL_FreeSurface(image);
-                result = imageRGBA;
-            }
-        }
-
-        if (task->callback) {
-			task->callback(result);
-		}
-        free(task);
-		SDL_LockMutex(bgqueueMutex);
-		if (!taskBGQueueHead) taskBGQueueTail = NULL;
-		currentBGQueueSize--;  // <-- add this
-		SDL_UnlockMutex(bgqueueMutex);
-    }
-    return 0;
-}
-int ThumbLoadWorker(void* unused) {
-    while (!SDL_AtomicGet(&workerThreadsShutdown)) {
-        SDL_LockMutex(thumbqueueMutex);
-        while (!taskThumbQueueHead && !SDL_AtomicGet(&workerThreadsShutdown)) {
-        	SDL_CondWait(thumbqueueCond, thumbqueueMutex);
-        }
-        if (SDL_AtomicGet(&workerThreadsShutdown)) {
-            SDL_UnlockMutex(thumbqueueMutex);
-            break;
-        }
-        TaskNode* node = taskThumbQueueHead;
-        taskThumbQueueHead = node->next;
-        if (!taskThumbQueueHead) taskThumbQueueTail = NULL;
-        SDL_UnlockMutex(thumbqueueMutex);
-		// give processor lil space in between queue items for other shit
-		//SDL_Delay(100);
-        LoadBackgroundTask* task = node->task;
-        free(node);
-
-        SDL_Surface* result = NULL;
-        if (access(task->imagePath, F_OK) == 0) {
-            SDL_Surface* image = IMG_Load(task->imagePath);
-            if (image) {
-                SDL_Surface* imageRGBA = SDL_ConvertSurfaceFormat(image, screen->format->format, 0);
-                SDL_FreeSurface(image);
-                result = imageRGBA;
-            }
-        }
-
-        if (task->callback) {
-			task->callback(result);
-		}
-        free(task);
-		SDL_LockMutex(thumbqueueMutex);
-		if (!taskThumbQueueHead) taskThumbQueueTail = NULL;
-		currentThumbQueueSize--;  // <-- add this
-		SDL_UnlockMutex(thumbqueueMutex);
-    }
-    return 0;
-}
 
 // --- Folder background loader ------------------------------------------------
 // One std::thread consuming a thread-safe queue. Replaces the hand-rolled
@@ -1948,118 +1722,7 @@ void onThumbLoaded(SDL_Surface* surface) {
 SDL_Rect pillRect;
 int pilltargetY =0;
 int pilltargetTextY =0;
-void animcallback(finishedTask *task) {
-	SDL_LockMutex(animMutex);
-	pillRect = task->dst;
-	if(pillRect.w > 0 && pillRect.h > 0) {
-		pilltargetY = +screen->w; // move offscreen
-		if(task->done) {
-			pilltargetY = task->targetY;
-			pilltargetTextY = task->targetTextY;
-		}
-		setNeedDraw(1);
-	}
-	SDL_UnlockMutex(animMutex);
-	setAnimationDraw(1);
-}
-bool frameReady = true;
 bool pillanimdone = false;
-
-int animWorker(void* unused) {
-	  while (!SDL_AtomicGet(&workerThreadsShutdown)) {
- 		SDL_LockMutex(animqueueMutex);
-    while (!animTaskQueueHead && !SDL_AtomicGet(&workerThreadsShutdown)) {
-        SDL_CondWait(animqueueCond, animqueueMutex);
-    }
-    if (SDL_AtomicGet(&workerThreadsShutdown)) {
-        SDL_UnlockMutex(animqueueMutex);
-        break;
-    }
-    AnimTaskNode* node = animTaskQueueHead;
-    animTaskQueueHead = node->next;
-    if (!animTaskQueueHead) animTtaskQueueTail = NULL;
-		SDL_UnlockMutex(animqueueMutex);
-
-    AnimTask* task = node->task;
-		finishedTask* finaltask = (finishedTask*)malloc(sizeof(finishedTask));
-		int total_frames = task->frames;
-		for (int frame = 0; frame <= total_frames; frame++) {
-			// Check for shutdown at start of each frame
-			if (SDL_AtomicGet(&workerThreadsShutdown)) break;
-
-			float t = (float)frame / total_frames;
-			if (t > 1.0f) t = 1.0f;
-
-			int current_x = task->startX + (int)((task->targetX - task->startX) * t);
-			int current_y = task->startY + (int)(( task->targetY -  task->startY) * t);
-
-			SDL_Rect moveDst = { current_x, current_y, task->move_w, task->move_h };
-			finaltask->dst = moveDst;
-			finaltask->entry_name = task->entry_name;
-			finaltask->move_w = task->move_w;
-			finaltask->move_h = task->move_h;
-			finaltask->targetY = task->targetY;
-			finaltask->targetTextY = task->targetTextY;
-			finaltask->move_y = SCALE1(PADDING + task->targetY) + (task->targetTextY - task->targetY);
-			finaltask->done = 0;
-			if(frame >= total_frames) finaltask->done=1;
-			task->callback(finaltask);
-			SDL_LockMutex(frameMutex);
-			while (!frameReady && !SDL_AtomicGet(&workerThreadsShutdown)) {
-				SDL_CondWait(flipCond, frameMutex);
-			}
-			frameReady = false;
-			SDL_UnlockMutex(frameMutex);
-
-		}
-		SDL_LockMutex(animqueueMutex);
-		if (!animTaskQueueHead) animTtaskQueueTail = NULL;
-		currentAnimQueueSize--;  // <-- add this
-		SDL_UnlockMutex(animqueueMutex);
-
-		SDL_LockMutex(animMutex);
-		pillanimdone = true;
-		free(finaltask);
-		SDL_UnlockMutex(animMutex);
-	}
-}
-
-void enqueueanmimtask(AnimTask* task) {
-    AnimTaskNode* node = (AnimTaskNode*)malloc(sizeof(AnimTaskNode));
-    node->task = task;
-    node->next = NULL;
-
-    SDL_LockMutex(animqueueMutex);
-	pillanimdone = false;
-    // If queue is full, drop the oldest task (head)
-    if (currentAnimQueueSize >= 1) {
-        AnimTaskNode* oldNode = animTaskQueueHead;
-        if (oldNode) {
-            animTaskQueueHead = oldNode->next;
-            if (!animTaskQueueHead) {
-                animTtaskQueueTail = NULL;
-            }
-            if (oldNode->task) {
-                free(oldNode->task);  // Only if task was malloc'd
-            }
-            free(oldNode);
-            currentAnimQueueSize--;
-        }
-    }
-
-    // Enqueue the new task
-    if (animTtaskQueueTail) {
-        animTtaskQueueTail->next = node;
-        animTtaskQueueTail = node;
-    } else {
-        animTaskQueueHead = animTtaskQueueTail = node;
-    }
-
-    currentAnimQueueSize++;
-    SDL_CondSignal(animqueueCond);
-    SDL_UnlockMutex(animqueueMutex);
-}
-
 // Main-thread pill animation. The pill (the selection highlight) slides from
 // its current position to the target over `frames` frames. This used to run in
 // a worker thread that tweened across frames and handed each position back to
@@ -2135,41 +1798,18 @@ void animPill(AnimTask *task) {
 }
 
 void initImageLoaderPool() {
-	// Initialize shutdown flag to 0
-	SDL_AtomicSet(&workerThreadsShutdown, 0);
 	SDL_AtomicSet(&animationDrawAtomic, 1);
 	SDL_AtomicSet(&needDrawAtomic, 0);
 
-    thumbqueueMutex = SDL_CreateMutex();
-    bgqueueMutex = SDL_CreateMutex();
-    bgqueueCond = SDL_CreateCond();
-    thumbqueueCond = SDL_CreateCond();
 	bgMutex = SDL_CreateMutex();
 	thumbMutex = SDL_CreateMutex();
 	animMutex = SDL_CreateMutex();
-	animqueueMutex = SDL_CreateMutex();
-	animqueueCond = SDL_CreateCond();
-	frameMutex = SDL_CreateMutex();
 	fontMutex = SDL_CreateMutex();
-	flipCond = SDL_CreateCond();
 
     // Folder backgrounds and thumbnails each run on their own std::thread +
     // ThreadSafeQueue loader.
     bgLoadWorkerThread = std::thread(bgLoadWorkerLoop);
     thumbLoadWorkerThread = std::thread(thumbLoadWorkerLoop);
-
-#if NEXTUI_POC_NO_WORKERS
-    // The legacy SDL bg/thumb workers are superseded by the std::thread loaders
-    // above, and the pill animation is now main-thread. Nothing left to spawn on
-    // the old path.
-    bgLoadThread = NULL;
-    thumbLoadThread = NULL;
-    animWorkerThread = NULL;
-#else
-    bgLoadThread = SDL_CreateThread(BGLoadWorker, "BGLoadWorker", NULL);
-    thumbLoadThread = SDL_CreateThread(ThumbLoadWorker, "ThumbLoadWorker", NULL);
-	animWorkerThread = SDL_CreateThread(animWorker, "animWorker", NULL);
-#endif
 }
 
 void cleanupImageLoaderPool() {
@@ -2180,71 +1820,22 @@ void cleanupImageLoaderPool() {
 	thumbLoadQueue.shutdown();
 	if (thumbLoadWorkerThread.joinable()) thumbLoadWorkerThread.join();
 
-	// Signal all worker threads to exit (atomic set for thread safety)
-	SDL_AtomicSet(&workerThreadsShutdown, 1);
-
-	// Wake up all waiting threads
-	if (bgqueueCond) SDL_CondSignal(bgqueueCond);
-	if (thumbqueueCond) SDL_CondSignal(thumbqueueCond);
-	if (animqueueCond) SDL_CondSignal(animqueueCond);
-	if (flipCond) SDL_CondSignal(flipCond);  // Wake up animWorker if stuck waiting for frame flip
-
-	// Wait for all worker threads to finish
-	if (bgLoadThread) {
-		SDL_WaitThread(bgLoadThread, NULL);
-		bgLoadThread = NULL;
-	}
-	if (thumbLoadThread) {
-		SDL_WaitThread(thumbLoadThread, NULL);
-		thumbLoadThread = NULL;
-	}
-	if (animWorkerThread) {
-		SDL_WaitThread(animWorkerThread, NULL);
-		animWorkerThread = NULL;
-	}
-
-	// Small delay to ensure llvmpipe/OpenGL threads have completed any pending operations
-	SDL_Delay(10);
-
-	// Acquire and release each mutex before destroying to ensure no thread is in a critical section
-	// This creates a memory barrier and ensures proper synchronization
-	if (bgqueueMutex) { SDL_LockMutex(bgqueueMutex); SDL_UnlockMutex(bgqueueMutex); }
-	if (thumbqueueMutex) { SDL_LockMutex(thumbqueueMutex); SDL_UnlockMutex(thumbqueueMutex); }
-	if (animqueueMutex) { SDL_LockMutex(animqueueMutex); SDL_UnlockMutex(animqueueMutex); }
+	// Acquire and release each mutex before destroying to ensure no thread is in a
+	// critical section -- a memory barrier for proper synchronization.
 	if (bgMutex) { SDL_LockMutex(bgMutex); SDL_UnlockMutex(bgMutex); }
 	if (thumbMutex) { SDL_LockMutex(thumbMutex); SDL_UnlockMutex(thumbMutex); }
 	if (animMutex) { SDL_LockMutex(animMutex); SDL_UnlockMutex(animMutex); }
-	if (frameMutex) { SDL_LockMutex(frameMutex); SDL_UnlockMutex(frameMutex); }
 	if (fontMutex) { SDL_LockMutex(fontMutex); SDL_UnlockMutex(fontMutex); }
 
-	// Destroy mutexes and condition variables
-	if (bgqueueMutex) SDL_DestroyMutex(bgqueueMutex);
-	if (thumbqueueMutex) SDL_DestroyMutex(thumbqueueMutex);
-	if (animqueueMutex) SDL_DestroyMutex(animqueueMutex);
 	if (bgMutex) SDL_DestroyMutex(bgMutex);
 	if (thumbMutex) SDL_DestroyMutex(thumbMutex);
 	if (animMutex) SDL_DestroyMutex(animMutex);
-	if (frameMutex) SDL_DestroyMutex(frameMutex);
 	if (fontMutex) SDL_DestroyMutex(fontMutex);
 
-	if (bgqueueCond) SDL_DestroyCond(bgqueueCond);
-	if (thumbqueueCond) SDL_DestroyCond(thumbqueueCond);
-	if (animqueueCond) SDL_DestroyCond(animqueueCond);
-	if (flipCond) SDL_DestroyCond(flipCond);
-
-	// Set pointers to NULL after destruction
-	bgqueueMutex = NULL;
-	thumbqueueMutex = NULL;
-	animqueueMutex = NULL;
 	bgMutex = NULL;
 	thumbMutex = NULL;
 	animMutex = NULL;
-	frameMutex = NULL;
 	fontMutex = NULL;
-	bgqueueCond = NULL;
-	thumbqueueCond = NULL;
-	animqueueCond = NULL;
-	flipCond = NULL;
 }
 ///////////////////////////////////////
 
@@ -3378,24 +2969,13 @@ int main (int argc, char *argv[]) {
 		}
 		else {
 			// want to draw only if needed
-			SDL_LockMutex(bgqueueMutex);
-			SDL_LockMutex(thumbqueueMutex);
-			SDL_LockMutex(animqueueMutex);
 			if(getNeedDraw()) {
 				PLAT_GPU_Flip();
 				setNeedDraw(0);
 			} else {
 				GFX_sync();
 			}
-			SDL_UnlockMutex(animqueueMutex);
-			SDL_UnlockMutex(thumbqueueMutex);
-			SDL_UnlockMutex(bgqueueMutex);
 		}
-
-		SDL_LockMutex(frameMutex);
-		frameReady = true;
-		SDL_CondSignal(flipCond);
-		SDL_UnlockMutex(frameMutex);
 
 		// animation does not carry over between loops, this should only ever be set by
 		// input handling and directly consumed by the following render pass
