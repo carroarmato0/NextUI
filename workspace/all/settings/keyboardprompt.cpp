@@ -321,7 +321,7 @@ void KeyboardPrompt::drawKeyboard(SDL_Surface *screen, const AppState &state)
     // draw keyboard title
     if (!state.keyboard.title.empty())
     {
-        SDL_Surface *title = TTF_RenderUTF8_Blended(font.large, state.keyboard.title.c_str(), COLOR_WHITE);
+        SDL_Surface *title = TTF_RenderUTF8_Blended(GFX_getFonts()->large, state.keyboard.title.c_str(), COLOR_WHITE);
         SDL_Rect title_pos = {
             (screen->w - title->w) / 2, // center horizontally
             20,                         // 20px from top
@@ -333,8 +333,8 @@ void KeyboardPrompt::drawKeyboard(SDL_Surface *screen, const AppState &state)
 
     // draw input field with current text
     // todo: use TTF_SizeUTF8 to compute the width of the input field
-    SDL_Surface *input_placeholder = TTF_RenderUTF8_Blended(font.medium, "p", COLOR_WHITE);
-    SDL_Surface *input = TTF_RenderUTF8_Blended(font.medium, state.keyboard.current_text.c_str(), COLOR_WHITE);
+    SDL_Surface *input_placeholder = TTF_RenderUTF8_Blended(GFX_getFonts()->medium, "p", COLOR_WHITE);
+    SDL_Surface *input = TTF_RenderUTF8_Blended(GFX_getFonts()->medium, state.keyboard.current_text.c_str(), COLOR_WHITE);
     SDL_Rect input_pos = {
         (screen->w) / 2,
         input_placeholder->h * 2,
@@ -372,9 +372,9 @@ void KeyboardPrompt::drawKeyboard(SDL_Surface *screen, const AppState &state)
     // so we need to compute their width separately
     // compute them here to avoid doing it conditionally for each row
     int shift_width, space_width, enter_width;
-    TTF_SizeUTF8(font.medium, "shift", &shift_width, NULL);
-    TTF_SizeUTF8(font.medium, "space", &space_width, NULL);
-    TTF_SizeUTF8(font.medium, "enter", &enter_width, NULL);
+    TTF_SizeUTF8(GFX_getFonts()->medium, "shift", &shift_width, NULL);
+    TTF_SizeUTF8(GFX_getFonts()->medium, "space", &space_width, NULL);
+    TTF_SizeUTF8(GFX_getFonts()->medium, "enter", &enter_width, NULL);
     int special_key_width = std::max(shift_width, std::max(space_width, enter_width)) + (column_spacing * 4);
 
     for (int row = 0; row < num_rows; row++)
@@ -409,7 +409,7 @@ void KeyboardPrompt::drawKeyboard(SDL_Surface *screen, const AppState &state)
                 continue;
 
             SDL_Color text_color = (row == state.keyboard.row && col == state.keyboard.col) ? COLOR_BLACK : COLOR_WHITE;
-            SDL_Surface *key_text = TTF_RenderUTF8_Blended(font.medium, key.c_str(), text_color);
+            SDL_Surface *key_text = TTF_RenderUTF8_Blended(GFX_getFonts()->medium, key.c_str(), text_color);
 
             // special keys are not the same width as the other keys
             // so we need to compute their width separately

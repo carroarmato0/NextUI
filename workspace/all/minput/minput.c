@@ -14,7 +14,7 @@ static int getButtonWidth(char* label) {
 	
 	if (strlen(label)<=2) w = SCALE1(BUTTON_SIZE);
 	else {
-		text = TTF_RenderUTF8_Blended(font.tiny, label, COLOR_BUTTON_TEXT);
+		text = TTF_RenderUTF8_Blended(GFX_getFonts()->tiny, label, COLOR_BUTTON_TEXT);
 		w = SCALE1(BUTTON_SIZE) + text->w;
 		SDL_FreeSurface(text);
 	}
@@ -27,12 +27,12 @@ static void blitButton(char* label, SDL_Surface* dst, int pressed, int x, int y,
 	
 	int len = strlen(label);
 	if (len<=2) {
-		text = TTF_RenderUTF8_Blended(len==2?font.small:font.medium, label, COLOR_BUTTON_TEXT);
+		text = TTF_RenderUTF8_Blended(len==2?GFX_getFonts()->small:GFX_getFonts()->medium, label, COLOR_BUTTON_TEXT);
 		GFX_blitAsset(pressed?ASSET_BUTTON:ASSET_HOLE, NULL, dst, &point);
 		SDL_BlitSurface(text, NULL, dst, &(SDL_Rect){point.x+(SCALE1(BUTTON_SIZE)-text->w)/2,point.y+(SCALE1(BUTTON_SIZE)-text->h)/2});
 	}
 	else {
-		text = TTF_RenderUTF8_Blended(font.tiny, label, COLOR_BUTTON_TEXT);
+		text = TTF_RenderUTF8_Blended(GFX_getFonts()->tiny, label, COLOR_BUTTON_TEXT);
 		w = w ? w : SCALE1(BUTTON_SIZE)/2+text->w;
 		GFX_blitPill(pressed?ASSET_BUTTON:ASSET_HOLE, dst, &(SDL_Rect){point.x,point.y,w,SCALE1(BUTTON_SIZE)});
 		SDL_BlitSurface(text, NULL, dst, &(SDL_Rect){point.x+(w-text->w)/2,point.y+(SCALE1(BUTTON_SIZE)-text->h)/2,text->w,text->h});
@@ -230,7 +230,7 @@ int main(int argc , char* argv[]) {
 				blitButton("START", screen, PAD_isPressed(BTN_START), x, y, w);
 				x += w + SCALE1(BUTTON_MARGIN);
 				
-				SDL_Surface* text = TTF_RenderUTF8_Blended(font.tiny, "QUIT", COLOR_LIGHT_TEXT);
+				SDL_Surface* text = TTF_RenderUTF8_Blended(GFX_getFonts()->tiny, "QUIT", COLOR_LIGHT_TEXT);
 				SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){x,y+(SCALE1(BUTTON_SIZE)-text->h)/2});
 				SDL_FreeSurface(text);
 			}

@@ -1590,7 +1590,7 @@ static void updatePillTextSurface(const char* entry_name, int move_w, SDL_Color 
 	if (crop_w <= 0) return;
 
 	SDL_LockMutex(fontMutex);
-	SDL_Surface* tmp = TTF_RenderUTF8_Blended(font.large, entry_name, text_color);
+	SDL_Surface* tmp = TTF_RenderUTF8_Blended(GFX_getFonts()->large, entry_name, text_color);
 	SDL_UnlockMutex(fontMutex);
 	if (!tmp) return;
 
@@ -2365,9 +2365,9 @@ int main (int argc, char *argv[]) {
 						}
 
 						int w, h;
-						GFX_sizeText(font.tiny, item->name, SCALE1(FONT_TINY), &w, &h);
+						GFX_sizeText(GFX_getFonts()->tiny, item->name, SCALE1(FONT_TINY), &w, &h);
 						SDL_Rect text_rect = {item_rect.x + (item_size - w) / 2, item_rect.y + item_size - h - SCALE1(BUTTON_MARGIN), w, h};
-						GFX_blitText(font.tiny, item->name, SCALE1(FONT_TINY), text_color, screen, &text_rect);
+						GFX_blitText(GFX_getFonts()->tiny, item->name, SCALE1(FONT_TINY), text_color, screen, &text_rect);
 
 						ox += item_rect.w + SCALE1(MENU_ITEM_MARGIN);
 					}
@@ -2444,13 +2444,13 @@ int main (int argc, char *argv[]) {
 						int max_width = screen->w - SCALE1(PADDING * 2) - ow;
 
 						char display_name[256];
-						int text_width = GFX_truncateText(font.large, selectedEntry->name, display_name, max_width, SCALE1(BUTTON_PADDING*2));
+						int text_width = GFX_truncateText(GFX_getFonts()->large, selectedEntry->name, display_name, max_width, SCALE1(BUTTON_PADDING*2));
 						max_width = MIN(max_width, text_width);
 
 						SDL_Surface* text;
 						SDL_Color textColor = uintToColour(THEME_COLOR6_255);
 						SDL_LockMutex(fontMutex);
-						text = TTF_RenderUTF8_Blended(font.large, display_name, textColor);
+						text = TTF_RenderUTF8_Blended(GFX_getFonts()->large, display_name, textColor);
 						SDL_UnlockMutex(fontMutex);
 						const int text_offset_y = (SCALE1(PILL_SIZE) - text->h + 1) >> 1;
 						SDL_Rect _pill_rect = { SCALE1(PADDING), SCALE1(PADDING), max_width, SCALE1(PILL_SIZE) };
@@ -2543,14 +2543,14 @@ int main (int argc, char *argv[]) {
 								GFX_animateSurface(tmpsur,0-screen->w,0,0,0,screen->w,screen->h,CFG_getMenuTransitions() ? 80:20,0,255,LAYER_ALL);
 						}
 						SDL_FreeSurface(tmpsur);
-						GFX_blitMessage(font.large, "No Preview", screen, &preview_rect);
+						GFX_blitMessage(GFX_getFonts()->large, "No Preview", screen, &preview_rect);
 					}
 					Entry_free(selectedEntry);
 				}
 				else {
 					SDL_Rect preview_rect = {ox,oy,screen->w,screen->h};
 					SDL_FillRect(screen, &preview_rect, 0);
-					GFX_blitMessage(font.large, "No Recents", screen, &preview_rect);
+					GFX_blitMessage(GFX_getFonts()->large, "No Recents", screen, &preview_rect);
 					BTN_HINTS(1, screen, 1, "B","BACK", NULL);
 				}
 
@@ -2690,7 +2690,7 @@ int main (int argc, char *argv[]) {
 							trimSortingMeta(&entry_unique);
 
 						char display_name[256];
-						int text_width = GFX_getTextWidth(font.large, entry_unique ? entry_unique : entry_name, display_name, available_width, SCALE1(BUTTON_PADDING * 2));
+						int text_width = GFX_getTextWidth(GFX_getFonts()->large, entry_unique ? entry_unique : entry_name, display_name, available_width, SCALE1(BUTTON_PADDING * 2));
 						int max_width = MIN(available_width, text_width);
 
 						// This spaghetti is preventing white text on white pill when volume/color temp is shown,
@@ -2703,13 +2703,13 @@ int main (int argc, char *argv[]) {
 						}
 
 						SDL_LockMutex(fontMutex);
-						SDL_Surface* text = TTF_RenderUTF8_Blended(font.large, entry_name, text_color);
-						SDL_Surface* text_unique = TTF_RenderUTF8_Blended(font.large, display_name, COLOR_DARK_TEXT);
+						SDL_Surface* text = TTF_RenderUTF8_Blended(GFX_getFonts()->large, entry_name, text_color);
+						SDL_Surface* text_unique = TTF_RenderUTF8_Blended(GFX_getFonts()->large, display_name, COLOR_DARK_TEXT);
 						SDL_UnlockMutex(fontMutex);
 						// TODO: Use actual font metrics to center, this only works in simple cases
 						const int text_offset_y = (SCALE1(PILL_SIZE) - text->h + 1) >> 1;
 						if (row_is_selected) {
-							is_scrolling = list_show_entry_names && GFX_textShouldScroll(font.large,display_name, max_width - SCALE1(BUTTON_PADDING*2), fontMutex);
+							is_scrolling = list_show_entry_names && GFX_textShouldScroll(GFX_getFonts()->large,display_name, max_width - SCALE1(BUTTON_PADDING*2), fontMutex);
 							GFX_resetScrollText();
 							bool should_animate = previous_depth == (int)stack.size();
 							SDL_LockMutex(animMutex);
@@ -2765,7 +2765,7 @@ int main (int argc, char *argv[]) {
 				}
 				else {
 					// TODO: for some reason screen's dimensions end up being 0x0 in GFX_blitMessage...
-					{ SDL_Rect _r = {0,0,screen->w,screen->h}; GFX_blitMessage(font.large, "Empty folder", screen, &_r); } //, NULL);
+					{ SDL_Rect _r = {0,0,screen->w,screen->h}; GFX_blitMessage(GFX_getFonts()->large, "Empty folder", screen, &_r); } //, NULL);
 				}
 
 				lastScreen = SCREEN_GAMELIST;
@@ -2941,14 +2941,14 @@ int main (int argc, char *argv[]) {
 
 					SDL_Color text_color = uintToColour(THEME_COLOR5_255);
 
-					int text_width = GFX_getTextWidth(font.large, entry_text, cached_display_name, available_width, SCALE1(BUTTON_PADDING * 2));
+					int text_width = GFX_getTextWidth(GFX_getFonts()->large, entry_text, cached_display_name, available_width, SCALE1(BUTTON_PADDING * 2));
 					int max_width = MIN(available_width, text_width);
-					int text_offset_y = (SCALE1(PILL_SIZE) - TTF_FontHeight(font.large) + 1) >> 1;
+					int text_offset_y = (SCALE1(PILL_SIZE) - TTF_FontHeight(GFX_getFonts()->large) + 1) >> 1;
 
 					GFX_clearLayers(LAYER_SCROLLTEXT);
 					if (list_show_entry_names) {
 						GFX_scrollTextTexture(
-							font.large,
+							GFX_getFonts()->large,
 							entry_text,
 							SCALE1(BUTTON_MARGIN + BUTTON_PADDING), SCALE1(PADDING + previous_row * PILL_SIZE) + text_offset_y,
 							max_width - SCALE1(BUTTON_PADDING * 2),

@@ -92,7 +92,8 @@ static struct GFX_Context
 
 static SDL_Rect asset_rects[ASSET_COUNT];
 static uint32_t asset_rgbs[ASSET_COLORS];
-GFX_Fonts font;
+static GFX_Fonts font;
+GFX_Fonts* GFX_getFonts(void) { return &font; }
 
 ///////////////////////////////
 

@@ -35,7 +35,7 @@ int Menu_messageWithFont(char* message, char** pairs, TTF_Font* f) {
 }
 
 int Menu_message(char* message, char** pairs) {
-	return Menu_messageWithFont(message, pairs, font.medium);
+	return Menu_messageWithFont(message, pairs, GFX_getFonts()->medium);
 }
 
 static int MenuList_freeItems(MenuList* list, int i) {
@@ -140,7 +140,7 @@ static int OptionEmulator_optionDetail(MenuList* list, int i) {
 	}
 	else {
 		Option* option = OptionList_getOption(&config.core, item->key);
-		if (option->full) return Menu_messageWithFont(option->full, (char*[]){ "B","BACK", NULL }, font.medium);
+		if (option->full) return Menu_messageWithFont(option->full, (char*[]){ "B","BACK", NULL }, GFX_getFonts()->medium);
 		else return MENU_CALLBACK_NOP;
 	}
 }
@@ -520,7 +520,7 @@ int OptionCheats_openMenu(MenuList* list, int i) {
 				len = strlen(cheat->info) + 1;
 				item->desc = calloc(len, sizeof(char));
 				strncpy(item->desc, cheat->info, len);
-				GFX_wrapText(font.tiny, item->desc, DEVICE_WIDTH - SCALE1(2*PADDING), 2);
+				GFX_wrapText(GFX_getFonts()->tiny, item->desc, DEVICE_WIDTH - SCALE1(2*PADDING), 2);
 			}
 
 			item->value = cheat->enabled;
@@ -588,7 +588,7 @@ int OptionCheats_openMenu(MenuList* list, int i) {
 			}
 		}
 
-		Menu_messageWithFont(cheats_path, (char*[]){ "B","BACK", NULL }, font.small);
+		Menu_messageWithFont(cheats_path, (char*[]){ "B","BACK", NULL }, GFX_getFonts()->small);
 	}
 
 	return MENU_CALLBACK_NOP;

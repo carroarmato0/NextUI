@@ -263,7 +263,7 @@ void renderList(int count, int start, int end, int selected)
             //textColor = colorFromUint(THEME_COLOR1);
             textColor = COLOR_BLACK;
         }
-        renderText(rom_name, font.medium, textColor, &(SDL_Rect){
+        renderText(rom_name, GFX_getFonts()->medium, textColor, &(SDL_Rect){
             layout.list_display_start_x + num_width + thumbMargin + SCALE1(IMG_MAX_WIDTH), 
             layout.list_display_start_y + thumbMargin / 2 + elemHeight * row, 
             layout.list_display_size_x, 
@@ -284,7 +284,7 @@ void renderList(int count, int start, int end, int selected)
             SDL_Color detailCol = i % 2 == 0 ? COLOR_DARK_TEXT : colorFromUint(THEME_COLOR2_255);
             //SDL_Color detailCol = colorFromUint(i % 2 == 0 ? THEME_COLOR3_255 : THEME_COLOR2_255);
             //SDL_Color detailCol = i % 2 == 0 ? COLOR_DARK_TEXT : COLOR_LIGHT_TEXT;
-            detailsRect.x += renderText(details[i], font.small, detailCol, &detailsRect);
+            detailsRect.x += renderText(details[i], GFX_getFonts()->small, detailCol, &detailsRect);
         }
     }
 
@@ -420,11 +420,11 @@ int main(int argc, char *argv[])
                 sprintf(display_name, "Time spent having fun: %s", play_time_total_formatted);
 
                 char title[256];
-                int text_width = GFX_truncateText(font.large, display_name, title, max_width, SCALE1(BUTTON_PADDING * 2));
+                int text_width = GFX_truncateText(GFX_getFonts()->large, display_name, title, max_width, SCALE1(BUTTON_PADDING * 2));
                 max_width = MIN(max_width, text_width);
 
                 SDL_Surface *text;
-                text = TTF_RenderUTF8_Blended(font.large, title, COLOR_WHITE);
+                text = TTF_RenderUTF8_Blended(GFX_getFonts()->large, title, COLOR_WHITE);
                 GFX_blitPill(ASSET_BLACK_PILL, screen, &(SDL_Rect){SCALE1(PADDING), SCALE1(PADDING), max_width, SCALE1(PILL_SIZE)});
                 SDL_BlitSurface(text, &(SDL_Rect){0, 0, max_width - SCALE1(BUTTON_PADDING * 2), text->h}, screen, &(SDL_Rect){SCALE1(PADDING + BUTTON_PADDING), SCALE1(PADDING + 4)});
                 SDL_FreeSurface(text);

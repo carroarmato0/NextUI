@@ -214,16 +214,16 @@ void ColorPickerMenu::drawSlider(SDL_Surface *surface, const SDL_Rect &row,
     int label_fixed_w;
     {
         int wr, wg, wb;
-        TTF_SizeUTF8(font.small, "R", &wr, nullptr);
-        TTF_SizeUTF8(font.small, "G", &wg, nullptr);
-        TTF_SizeUTF8(font.small, "B", &wb, nullptr);
+        TTF_SizeUTF8(GFX_getFonts()->small, "R", &wr, nullptr);
+        TTF_SizeUTF8(GFX_getFonts()->small, "G", &wg, nullptr);
+        TTF_SizeUTF8(GFX_getFonts()->small, "B", &wb, nullptr);
         label_fixed_w = std::max({wr, wg, wb});
     }
     int hex_fixed_w;
-    TTF_SizeUTF8(font.tiny, "00", &hex_fixed_w, nullptr);
+    TTF_SizeUTF8(GFX_getFonts()->tiny, "00", &hex_fixed_w, nullptr);
 
     // Channel label ("R", "G", "B") — centered in fixed-width slot
-    SDL_Surface *label_surf = TTF_RenderUTF8_Blended(font.small, label, text_color);
+    SDL_Surface *label_surf = TTF_RenderUTF8_Blended(GFX_getFonts()->small, label, text_color);
     int label_x = row.x + SCALE1(OPTION_PADDING) + (label_fixed_w - label_surf->w) / 2;
     SDL_BlitSurfaceCPP(label_surf, {}, surface,
                        {label_x, row.y + (row.h - label_surf->h) / 2});
@@ -232,7 +232,7 @@ void ColorPickerMenu::drawSlider(SDL_Surface *surface, const SDL_Rect &row,
     // Hex value right-aligned in fixed-width slot
     char hex_str[3];
     snprintf(hex_str, sizeof(hex_str), "%02X", value);
-    SDL_Surface *hex_surf = TTF_RenderUTF8_Blended(font.tiny, hex_str, text_color);
+    SDL_Surface *hex_surf = TTF_RenderUTF8_Blended(GFX_getFonts()->tiny, hex_str, text_color);
     int hex_slot_x = row.x + row.w - SCALE1(OPTION_PADDING) - hex_fixed_w;
     SDL_BlitSurfaceCPP(hex_surf, {}, surface,
                        {hex_slot_x + (hex_fixed_w - hex_surf->w),
@@ -308,7 +308,7 @@ void ColorPickerMenu::drawPreset(SDL_Surface *surface, const SDL_Rect &row,
     // Hex value "#RRGGBB"
     char hex_str[8];
     snprintf(hex_str, sizeof(hex_str), "#%06X", preset.color);
-    SDL_Surface *hex_surf = TTF_RenderUTF8_Blended(font.tiny, hex_str, text_color);
+    SDL_Surface *hex_surf = TTF_RenderUTF8_Blended(GFX_getFonts()->tiny, hex_str, text_color);
     int hex_x = sq_rect.x + sq + SCALE1(OPTION_PADDING / 2 + 2);
     SDL_BlitSurfaceCPP(hex_surf, {}, surface,
                        {hex_x, row.y + (row.h - hex_surf->h) / 2});
@@ -316,7 +316,7 @@ void ColorPickerMenu::drawPreset(SDL_Surface *surface, const SDL_Rect &row,
     SDL_FreeSurface(hex_surf);
 
     // Name label
-    SDL_Surface *name_surf = TTF_RenderUTF8_Blended(font.tiny, preset.label.c_str(), text_color);
+    SDL_Surface *name_surf = TTF_RenderUTF8_Blended(GFX_getFonts()->tiny, preset.label.c_str(), text_color);
     SDL_BlitSurfaceCPP(name_surf, {}, surface,
                        {hex_x + hex_w + SCALE1(OPTION_PADDING),
                         row.y + (row.h - name_surf->h) / 2});
@@ -329,9 +329,9 @@ void ColorPickerMenu::drawCustom(SDL_Surface *surface, const SDL_Rect &dst, cons
     if(dstTitle.h > 0 && dstTitle.w > 0)
     {
         char display_name[256];
-        GFX_truncateText(font.large, label_.c_str(), display_name,
+        GFX_truncateText(GFX_getFonts()->large, label_.c_str(), display_name,
                          dstTitle.w, SCALE1(OPTION_PADDING * 2));
-        SDL_Surface *title_text = TTF_RenderUTF8_Blended(font.large, display_name, uintToColour(THEME_COLOR4_255));
+        SDL_Surface *title_text = TTF_RenderUTF8_Blended(GFX_getFonts()->large, display_name, uintToColour(THEME_COLOR4_255));
         // hate the hardcoded +4, but we are matching MinUI code here
         SDL_BlitSurfaceCPP(title_text, {}, surface, {dstTitle.x + SCALE1(BUTTON_PADDING), dstTitle.y + 4, dstTitle.w - SCALE1(BUTTON_PADDING * 2), title_text->h});
         SDL_FreeSurface(title_text);

@@ -41,7 +41,7 @@ int main(int argc , char* argv[]) {
 #define CHAR_SLASH 10
 #define CHAR_COLON 11
 	while (c = chars[i]) {
-		digit = TTF_RenderUTF8_Blended(font.large, c, COLOR_WHITE);
+		digit = TTF_RenderUTF8_Blended(GFX_getFonts()->large, c, COLOR_WHITE);
 		int y = i==CHAR_COLON ? SCALE1(-1.5) : 0; // : sits too low naturally
 		// TODO: y offset is wrong here
 		// printf("%s x:%i y:%i SCALE1(DIGIT_HEIGHT):%i SCALE1(DIGIT_HEIGHT) - digit->h:%i\n", c, (i * SCALE1(DIGIT_WIDTH)), y, SCALE1(DIGIT_HEIGHT), SCALE1(DIGIT_HEIGHT) - digit->h); fflush(stdout);
@@ -294,7 +294,7 @@ int main(int argc , char* argv[]) {
 			int ampm_w;
 			if (!show_24hour) {
 				x += SCALE1(10); // space
-				SDL_Surface* text = TTF_RenderUTF8_Blended(font.large, am_selected ? "AM" : "PM", COLOR_WHITE);
+				SDL_Surface* text = TTF_RenderUTF8_Blended(GFX_getFonts()->large, am_selected ? "AM" : "PM", COLOR_WHITE);
 				ampm_w = text->w + SCALE1(2);
 				SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){x,y-SCALE1(3)});
 				SDL_FreeSurface(text);

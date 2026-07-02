@@ -177,7 +177,9 @@ typedef struct GFX_Fonts {
 	TTF_Font* tiny; 	// multi char button label
 	TTF_Font* micro; 	// icon overlay text
 } GFX_Fonts;
-extern GFX_Fonts font;
+// The loaded fonts live inside api.c; reach them through this accessor rather
+// than a bare extern global.
+GFX_Fonts* GFX_getFonts(void);
 
 enum {
 	SHARPNESS_SHARP,

@@ -453,10 +453,10 @@ void renderPage()
     switch_zoom_profile(segment_duration);
 
     // x axis labels
-    renderText(label[0], font.small, COLOR_WHITE, &(SDL_Rect){graph.layout.label1_x, graph.layout.label_y, 32, 32});
-    renderText(label[1], font.small, COLOR_WHITE, &(SDL_Rect){graph.layout.label2_x, graph.layout.label_y, 32, 32});
-    renderText(label[2], font.small, COLOR_WHITE, &(SDL_Rect){graph.layout.label3_x, graph.layout.label_y, 32, 32});
-    renderText(label[3], font.small, COLOR_WHITE, &(SDL_Rect){graph.layout.label4_x, graph.layout.label_y, 32, 32});
+    renderText(label[0], GFX_getFonts()->small, COLOR_WHITE, &(SDL_Rect){graph.layout.label1_x, graph.layout.label_y, 32, 32});
+    renderText(label[1], GFX_getFonts()->small, COLOR_WHITE, &(SDL_Rect){graph.layout.label2_x, graph.layout.label_y, 32, 32});
+    renderText(label[2], GFX_getFonts()->small, COLOR_WHITE, &(SDL_Rect){graph.layout.label3_x, graph.layout.label_y, 32, 32});
+    renderText(label[3], GFX_getFonts()->small, COLOR_WHITE, &(SDL_Rect){graph.layout.label4_x, graph.layout.label_y, 32, 32});
 
     // y axis "labels"
     drawBatteryIcon(100, (SDL_Rect){graph.layout.icon_x, graph.layout.icon1_y});
@@ -466,16 +466,16 @@ void renderPage()
 
     char text_line[255];
     sprintf(text_line, "Since Charge: %s", session_duration);
-    renderText(text_line, font.medium, COLOR_WHITE, &(SDL_Rect){graph.layout.label_session_x, graph.layout.label_session_y, graph.layout.label_size_x, graph.layout.label_size_y});
+    renderText(text_line, GFX_getFonts()->medium, COLOR_WHITE, &(SDL_Rect){graph.layout.label_session_x, graph.layout.label_session_y, graph.layout.label_size_x, graph.layout.label_size_y});
 
     sprintf(text_line, "Current: %s", current_percentage);
-    renderText(text_line, font.medium, COLOR_WHITE, &(SDL_Rect){graph.layout.label_current_x, graph.layout.label_current_y, graph.layout.label_size_x, graph.layout.label_size_y});
+    renderText(text_line, GFX_getFonts()->medium, COLOR_WHITE, &(SDL_Rect){graph.layout.label_current_x, graph.layout.label_current_y, graph.layout.label_size_x, graph.layout.label_size_y});
 
     sprintf(text_line, "Remaining: %s", session_left);
-    renderTextAlignRight(text_line, font.medium, COLOR_WHITE, &(SDL_Rect){graph.layout.label_left_x, graph.layout.label_left_y, graph.layout.label_size_x, graph.layout.label_size_y});
+    renderTextAlignRight(text_line, GFX_getFonts()->medium, COLOR_WHITE, &(SDL_Rect){graph.layout.label_left_x, graph.layout.label_left_y, graph.layout.label_size_x, graph.layout.label_size_y});
 
     sprintf(text_line, "Longest: %s", session_best);
-    renderTextAlignRight(text_line, font.medium, COLOR_WHITE, &(SDL_Rect){graph.layout.label_best_x, graph.layout.label_best_y, graph.layout.label_size_x, graph.layout.label_size_y});
+    renderTextAlignRight(text_line, GFX_getFonts()->medium, COLOR_WHITE, &(SDL_Rect){graph.layout.label_best_x, graph.layout.label_best_y, graph.layout.label_size_x, graph.layout.label_size_y});
 
     int half_line_width = (int)(GRAPH_LINE_WIDTH) / 2;
 
@@ -746,11 +746,11 @@ int main(int argc, char *argv[])
                 }
 
                 char title[256];
-                int text_width = GFX_truncateText(font.large, display_name, title, max_width, SCALE1(BUTTON_PADDING * 2));
+                int text_width = GFX_truncateText(GFX_getFonts()->large, display_name, title, max_width, SCALE1(BUTTON_PADDING * 2));
                 max_width = MIN(max_width, text_width);
 
                 SDL_Surface *text;
-                text = TTF_RenderUTF8_Blended(font.large, title, COLOR_WHITE);
+                text = TTF_RenderUTF8_Blended(GFX_getFonts()->large, title, COLOR_WHITE);
                 
                 GFX_blitPill(ASSET_BLACK_PILL, screen, &(SDL_Rect){SCALE1(PADDING), SCALE1(PADDING), max_width, SCALE1(PILL_SIZE)});
                 SDL_BlitSurface(text, &(SDL_Rect){0, 0, max_width - SCALE1(BUTTON_PADDING * 2), text->h}, screen, &(SDL_Rect){SCALE1(PADDING + BUTTON_PADDING), SCALE1(PADDING + 4)});

@@ -67,8 +67,8 @@ void OptionList_init(const struct retro_core_option_definition *defs) {
 				strncpy(item->full, item->desc, len);
 				// item->desc[len-1] = '\0';
 
-				GFX_wrapText(font.tiny, item->desc, DEVICE_WIDTH - SCALE1(2*PADDING), 2);
-				GFX_wrapText(font.medium, item->full, DEVICE_WIDTH - SCALE1(2*PADDING), 16);
+				GFX_wrapText(GFX_getFonts()->tiny, item->desc, DEVICE_WIDTH - SCALE1(2*PADDING), 2);
+				GFX_wrapText(GFX_getFonts()->medium, item->full, DEVICE_WIDTH - SCALE1(2*PADDING), 16);
 			}
 
 			for (count=0; def->values[count].value; count++);
@@ -151,8 +151,8 @@ void OptionList_v2_init(const struct retro_core_options_v2 *opt_defs) {
 				item->desc = strdup(def->info);
 				item->full = strdup(item->desc);
 
-				GFX_wrapText(font.tiny, item->desc, DEVICE_WIDTH - SCALE1(2*PADDING), 2);
-				GFX_wrapText(font.medium, item->full, DEVICE_WIDTH - SCALE1(2*PADDING), 16);
+				GFX_wrapText(GFX_getFonts()->tiny, item->desc, DEVICE_WIDTH - SCALE1(2*PADDING), 2);
+				GFX_wrapText(GFX_getFonts()->medium, item->full, DEVICE_WIDTH - SCALE1(2*PADDING), 16);
 			}
 
 			for (count=0; def->values[count].value; count++);
