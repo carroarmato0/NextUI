@@ -103,7 +103,7 @@ uint32_t THEME_COLOR4;
 uint32_t THEME_COLOR5;
 uint32_t THEME_COLOR6;
 uint32_t THEME_COLOR7;
-SDL_Color ALT_BUTTON_TEXT_COLOR;
+static SDL_Color ALT_BUTTON_TEXT_COLOR;
 
 // move to utils?
 
@@ -2927,7 +2927,7 @@ FALLBACK_IMPLEMENTATION void PLAT_overrideMute(int mute) {}
 
 ///////////////////////////////
 
-LID_Context lid = {
+static LID_Context lid = {
 	.has_lid = 0,
 	.is_open = 1,
 };

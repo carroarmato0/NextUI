@@ -75,7 +75,6 @@ extern uint32_t THEME_COLOR4;
 extern uint32_t THEME_COLOR5;
 extern uint32_t THEME_COLOR6;
 extern uint32_t THEME_COLOR7;
-extern SDL_Color ALT_BUTTON_TEXT_COLOR;
 
 typedef struct {
 	float ratio;
@@ -440,7 +439,6 @@ typedef struct LID_Context {
 	int has_lid;
 	int is_open;
 } LID_Context;
-extern LID_Context lid;
 
 void PLAT_initLid(void);
 int PLAT_lidChanged(int* state);
