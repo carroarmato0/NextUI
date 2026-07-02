@@ -89,10 +89,17 @@ extern SDL_Surface *screen;
 extern int quit;
 extern int show_menu;
 extern int newScreenshot;
-extern int rewinding;
 extern int use_core_fps;
-extern int rewind_pressed;
-extern int rewind_toggle;
+
+// Rewind runtime state, grouped out of the flat global soup (config lives in
+// the RewindConfig struct).
+typedef struct RewindState {
+	int active;       // was rewinding
+	int pressed;      // was rewind_pressed
+	int toggle;       // was rewind_toggle
+	int last_pressed; // was last_rewind_pressed
+} RewindState;
+extern RewindState rewind_st;
 
 // Fast-forward runtime state, grouped out of the flat global soup.
 typedef struct FastForward {
@@ -207,7 +214,6 @@ extern struct Config config;
 extern ButtonMapping default_button_mapping[];
 extern ButtonMapping core_button_mapping[];
 extern int gamepad_type;
-extern int last_rewind_pressed;
 
 void Config_syncFrontend(char* key, int value);
 

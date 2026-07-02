@@ -62,7 +62,7 @@ void Rewind_free(void) {
 		pthread_cond_destroy(&rewind_ctx.queue_cv);
 	}
 	memset(&rewind_ctx, 0, sizeof(rewind_ctx));
-	rewinding = 0;
+	rewind_st.active = 0;
 }
 
 void Rewind_reset(void) {
@@ -99,7 +99,7 @@ void Rewind_reset(void) {
 		}
 		pthread_mutex_unlock(&rewind_ctx.queue_mx);
 	}
-	rewinding = 0;
+	rewind_st.active = 0;
 	rewind_warn_empty = 0;
 }
 
@@ -598,14 +598,14 @@ int Rewind_step_back(void) {
 	uint32_t now_ms = SDL_GetTicks();
 	if (rewind_ctx.playback_interval_ms > 0 && rewind_ctx.last_step_ms &&
 		(int)(now_ms - rewind_ctx.last_step_ms) < rewind_ctx.playback_interval_ms) {
-		// still rewinding, just waiting for cadence; don't run core, just re-render
+		// still rewind_st.active, just waiting for cadence; don't run core, just re-render
 		return REWIND_STEP_CADENCE;
 	}
 
 	// On first rewind step, we need to:
 	// 1. Wait for any pending compression to finish (so entry indices are stable)
 	// 2. Copy the last compressed state as our delta reference
-	if (!rewinding && rewind_ctx.compress && rewind_ctx.prev_state_dec) {
+	if (!rewind_st.active && rewind_ctx.compress && rewind_ctx.prev_state_dec) {
 		// Wait for worker to finish all pending compressions
 		Rewind_wait_for_worker_idle();
 		pthread_mutex_lock(&rewind_ctx.lock);
@@ -708,7 +708,7 @@ int Rewind_step_back(void) {
 	}
 	pthread_mutex_unlock(&rewind_ctx.lock);
 
-	rewinding = 1;
+	rewind_st.active = 1;
 	rewind_ctx.last_step_ms = now_ms;
 	return REWIND_STEP_OK;
 }
@@ -717,13 +717,13 @@ int Rewind_step_back(void) {
 // Also clears old entries that were compressed with a different delta chain
 void Rewind_sync_encode_state(void) {
 	if (!rewind_ctx.enabled || !rewind_ctx.compress) return;
-	if (!rewinding) return; // Only sync if we were actually rewinding
+	if (!rewind_st.active) return; // Only sync if we were actually rewind_st.active
 
 	pthread_mutex_lock(&rewind_ctx.lock);
 
 	// The decoder's prev_state_dec contains the state we rewound to.
 	// Use it as the new reference for future compressions so the existing
-	// rewind history remains valid and we can continue rewinding further back.
+	// rewind history remains valid and we can continue rewind_st.active further back.
 	if (rewind_ctx.has_prev_dec && rewind_ctx.prev_state_dec && rewind_ctx.prev_state_enc) {
 		memcpy(rewind_ctx.prev_state_enc, rewind_ctx.prev_state_dec, rewind_ctx.state_size);
 		rewind_ctx.has_prev_enc = 1;

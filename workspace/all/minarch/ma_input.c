@@ -45,7 +45,7 @@ void input_poll_callback(void) {
 	}
 
 	static int toggled_ff_on = 0; // this logic only works because TOGGLE_FF is before HOLD_FF in the menu...
-	rewind_pressed = 0;
+	rewind_st.pressed = 0;
 	for (int i=0; i<SHORTCUT_COUNT; i++) {
 		ButtonMapping* mapping = &config.shortcuts[i];
 		int btn = 1 << mapping->local;
@@ -56,12 +56,12 @@ void input_poll_callback(void) {
 					toggled_ff_on = setFastForward(!ff.active);
 					ff.toggled = toggled_ff_on;
 					ff.hold_active = 0;
-					if (ff.toggled && rewind_toggle) {
+					if (ff.toggled && rewind_st.toggle) {
 						// last toggle wins: disable rewind toggle when FF toggle is enabled
-						rewind_toggle = 0;
-						rewind_pressed = 0;
+						rewind_st.toggle = 0;
+						rewind_st.pressed = 0;
 						Rewind_sync_encode_state();
-						rewinding = 0;
+						rewind_st.active = 0;
 					}
 					if (mapping->mod) ignore_menu = 1;
 					break;
@@ -85,26 +85,26 @@ void input_poll_callback(void) {
 				}
 			}
 			else if (i==SHORTCUT_HOLD_REWIND) {
-				rewind_pressed = PAD_isPressed(btn) ? 1 : 0;
-				if (rewind_pressed != last_rewind_pressed) {
-					LOG_info("Rewind hotkey %s\n", rewind_pressed ? "pressed" : "released");
-					last_rewind_pressed = rewind_pressed;
+				rewind_st.pressed = PAD_isPressed(btn) ? 1 : 0;
+				if (rewind_st.pressed != rewind_st.last_pressed) {
+					LOG_info("Rewind hotkey %s\n", rewind_st.pressed ? "pressed" : "released");
+					rewind_st.last_pressed = rewind_st.pressed;
 				}
-				if (rewind_pressed && ff.toggled && !ff.paused_by_rewind_hold) {
+				if (rewind_st.pressed && ff.toggled && !ff.paused_by_rewind_hold) {
 					ff.paused_by_rewind_hold = 1;
 					ff.active = setFastForward(0);
 				}
-				else if (!rewind_pressed && ff.paused_by_rewind_hold) {
+				else if (!rewind_st.pressed && ff.paused_by_rewind_hold) {
 					ff.paused_by_rewind_hold = 0;
 					if (ff.toggled) ff.active = setFastForward(1);
 				}
-				if (mapping->mod && rewind_pressed) ignore_menu = 1;
+				if (mapping->mod && rewind_st.pressed) ignore_menu = 1;
 			}
 			else if (i==SHORTCUT_TOGGLE_REWIND) {
 				if (PAD_justPressed(btn)) {
-					rewind_toggle = !rewind_toggle;
-					if (rewind_toggle && ff.toggled) {
-						// disable fast forward toggle when rewinding is toggled on
+					rewind_st.toggle = !rewind_st.toggle;
+					if (rewind_st.toggle && ff.toggled) {
+						// disable fast forward toggle when rewind_st.active is toggled on
 						ff.toggled = 0;
 						ff.active = setFastForward(0);
 						ff.paused_by_rewind_hold = 0;

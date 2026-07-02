@@ -42,12 +42,9 @@ int use_core_fps = 0;
 int sync_ref = 0;
 int show_debug = 0;
 int max_ff_speed = 3; // 4x
-int rewind_pressed = 0;
-int rewind_toggle = 0;
-int last_rewind_pressed = 0;
-int rewinding = 0;
 
 FastForward ff = {0};
+RewindState rewind_st = {0};
 RewindConfig rewind_cfg = {
 	.enable = MINARCH_DEFAULT_REWIND_ENABLE,
 	.buffer_mb = MINARCH_DEFAULT_REWIND_BUFFER_MB,

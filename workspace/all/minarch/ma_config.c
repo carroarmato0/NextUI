@@ -191,10 +191,10 @@ void Config_syncFrontend(char* key, int value) {
 		}
 		if (i==FE_OPT_REWIND_ENABLE) {
 			// ensure runtime toggles don't linger when enabling/disabling feature
-			rewind_toggle = 0;
-			rewind_pressed = 0;
+			rewind_st.toggle = 0;
+			rewind_st.pressed = 0;
 			Rewind_sync_encode_state();
-			rewinding = 0;
+			rewind_st.active = 0;
 			ff.paused_by_rewind_hold = 0;
 		}
 	}
@@ -1487,7 +1487,7 @@ struct Config config = {
 			[FE_OPT_REWIND_AUDIO] = {
 				.key	= "minarch_rewind_audio",
 				.name	= "Rewind audio",
-				.desc	= "Play or mute audio when rewinding.",
+				.desc	= "Play or mute audio when rewind_st.active.",
 				.default_value = MINARCH_DEFAULT_REWIND_AUDIO ? 1 : 0,
 				.value = MINARCH_DEFAULT_REWIND_AUDIO ? 1 : 0,
 				.count = 2,
