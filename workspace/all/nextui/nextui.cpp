@@ -1972,6 +1972,7 @@ int main (int argc, char *argv[]) {
 					restore_end = 0;
 				}
 				Entry_open(selected);
+				if (!top->entries.empty()) readyResume(top->entries[top->selected]);
 				dirty = 1;
 			}
 			else if (PAD_justPressed(BTN_RIGHT)) {
@@ -2452,10 +2453,10 @@ int main (int argc, char *argv[]) {
 						SDL_FreeSurface(text);
 					}
 
-					if(can_resume) GFX_blitButtonGroup((char**)(const char*[]){ "B","BACK",  NULL }, 0, screen, 0);
-					else GFX_blitButtonGroup((char**)(const char*[]){ BTN_SLEEP==BTN_POWER?"POWER":"MENU","SLEEP",  NULL }, 0, screen, 0);
+					GFX_blitButtonGroup((char**)(const char*[]){ "B","BACK",  NULL }, 0, screen, 0);
 
-					GFX_blitButtonGroup((char**)(const char*[]){ "Y", "REMOVE", "A","RESUME", NULL }, 1, screen, 1);
+					if(can_resume) GFX_blitButtonGroup((char**)(const char*[]){ "Y", "REMOVE", "A","RESUME", NULL }, 1, screen, 1);
+					else GFX_blitButtonGroup((char**)(const char*[]){ "A","OPEN", NULL }, 1, screen, 1);
 
 					if(has_preview) {
 						// lotta memory churn here
