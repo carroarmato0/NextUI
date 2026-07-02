@@ -30,14 +30,16 @@ int simple_mode = 0;
 enum retro_pixel_format fmt = RETRO_PIXEL_FORMAT_XRGB8888;
 
 // default frontend options
-int screen_scaling = SCALE_ASPECT;
 int resampling_quality = 2;
 int ambient_mode = 0;
-int screen_sharpness = SHARPNESS_SOFT;
-int screen_effect = EFFECT_NONE;
-int cfg_screenx = 64;
-int cfg_screeny = 64;
-int overlay = 0; 
+int overlay = 0;
+DisplayConfig display_cfg = {
+	.scaling = SCALE_ASPECT,
+	.effect = EFFECT_NONE,
+	.sharpness = SHARPNESS_SOFT,
+	.screenx = 64,
+	.screeny = 64,
+};
 int use_core_fps = 0;
 int sync_ref = 0;
 int show_debug = 0;

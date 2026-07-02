@@ -111,8 +111,15 @@ typedef struct FastForward {
 } FastForward;
 extern FastForward ff;
 
-extern int screen_scaling;
-extern int screen_effect;
+// Display configuration, grouped out of the flat global soup.
+typedef struct DisplayConfig {
+	int scaling;   // screen_scaling
+	int effect;    // screen_effect
+	int sharpness; // screen_sharpness
+	int screenx;   // cfg_screenx
+	int screeny;   // cfg_screeny
+} DisplayConfig;
+extern DisplayConfig display_cfg;
 
 extern int DEVICE_WIDTH;
 extern int DEVICE_HEIGHT;
@@ -124,9 +131,6 @@ extern int shader_reset_suppressed;
 extern char* scaling_labels[];
 extern int simple_mode;
 extern int resampling_quality;
-extern int screen_sharpness;
-extern int cfg_screenx;
-extern int cfg_screeny;
 extern int overlay;
 extern int sync_ref;
 extern int max_ff_speed;

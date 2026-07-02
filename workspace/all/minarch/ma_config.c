@@ -71,7 +71,7 @@ void setOverclock(int i) {
 void Config_syncFrontend(char* key, int value) {
 	int i = -1;
 	if (exactMatch(key,config.frontend.options[FE_OPT_SCALING].key)) {
-		screen_scaling 	= value;
+		display_cfg.scaling 	= value;
 		
 		renderer.dst_p = 0;
 		i = FE_OPT_SCALING;
@@ -90,7 +90,7 @@ void Config_syncFrontend(char* key, int value) {
 		i = FE_OPT_AMBIENT;
 	}
 	else if (exactMatch(key,config.frontend.options[FE_OPT_EFFECT].key)) {
-		screen_effect = value;
+		display_cfg.effect = value;
 		GFX_setEffect(value);
 		renderer.dst_p = 0;
 		i = FE_OPT_EFFECT;
@@ -111,12 +111,12 @@ void Config_syncFrontend(char* key, int value) {
 		}
 	}
 	else if (exactMatch(key,config.frontend.options[FE_OPT_SCREENX].key)) {
-		cfg_screenx = value;
+		display_cfg.screenx = value;
 		GFX_setOffsetX(value);
 		i = FE_OPT_SCREENX;
 	}
 	else if (exactMatch(key,config.frontend.options[FE_OPT_SCREENY].key)) {
-		cfg_screeny = value;
+		display_cfg.screeny = value;
 		GFX_setOffsetY(value);
 		i = FE_OPT_SCREENY;
 	}

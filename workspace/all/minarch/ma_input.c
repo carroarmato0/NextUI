@@ -160,12 +160,12 @@ void input_poll_callback(void) {
 						putFile(GAME_SWITCHER_PERSIST_PATH, game.path + strlen(SDCARD_PATH));
 						break;
 					case SHORTCUT_CYCLE_SCALE:
-						screen_scaling = (screen_scaling + 1) % config.frontend.options[FE_OPT_SCALING].count;
-						Config_syncFrontend(config.frontend.options[FE_OPT_SCALING].key, screen_scaling);
+						display_cfg.scaling = (display_cfg.scaling + 1) % config.frontend.options[FE_OPT_SCALING].count;
+						Config_syncFrontend(config.frontend.options[FE_OPT_SCALING].key, display_cfg.scaling);
 						break;
 					case SHORTCUT_CYCLE_EFFECT:
-						screen_effect = (screen_effect + 1) % config.frontend.options[FE_OPT_EFFECT].count;
-						Config_syncFrontend(config.frontend.options[FE_OPT_EFFECT].key, screen_effect);
+						display_cfg.effect = (display_cfg.effect + 1) % config.frontend.options[FE_OPT_EFFECT].count;
+						Config_syncFrontend(config.frontend.options[FE_OPT_EFFECT].key, display_cfg.effect);
 						break;
 					default: break;
 				}

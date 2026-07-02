@@ -1435,7 +1435,7 @@ static void Menu_scale(SDL_Surface* src, SDL_Surface* dst) {
 	int rw = dw;
 	int rh = dh;
 	
-	int scaling = screen_scaling;
+	int scaling = display_cfg.scaling;
 	if (scaling==SCALE_CROPPED && DEVICE_WIDTH==HDMI_WIDTH) {
 		scaling = SCALE_NATIVE;
 	}
@@ -1871,10 +1871,10 @@ void Menu_loop(void) {
 						show_menu = 0;
 					}
 					else {
-						int old_scaling = screen_scaling;
+						int old_scaling = display_cfg.scaling;
 						Options_updateVisibility();
 						Menu_options(&options_menu);
-						if (screen_scaling!=old_scaling) {
+						if (display_cfg.scaling!=old_scaling) {
 							selectScaler(renderer.true_w,renderer.true_h,renderer.src_p);
 						
 							restore_w = screen->w;
@@ -2051,13 +2051,13 @@ void Menu_loop(void) {
 		GFX_setOverlay(overlayList[overlay],core.tag);
 	}
 
-	GFX_setOffsetX(cfg_screenx);
-	GFX_setOffsetY(cfg_screeny);
+	GFX_setOffsetX(display_cfg.screenx);
+	GFX_setOffsetY(display_cfg.screeny);
 	if (!quit) {
 		if (restore_w!=DEVICE_WIDTH || restore_h!=DEVICE_HEIGHT) {
 			screen = GFX_resize(restore_w,restore_h,restore_p);
 		}
-		GFX_setEffect(screen_effect);
+		GFX_setEffect(display_cfg.effect);
 
 		GFX_clear(screen);
 

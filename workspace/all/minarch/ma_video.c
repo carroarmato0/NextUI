@@ -446,7 +446,7 @@ void selectScaler(int src_w, int src_h, int src_p) {
 	renderer.true_h = src_h;
 	
 	// TODO: this is saving non-rgb30 devices from themselves...or rather, me
-	int scaling = screen_scaling;
+	int scaling = display_cfg.scaling;
 	if (scaling==SCALE_CROPPED && DEVICE_WIDTH==HDMI_WIDTH) {
 		scaling = SCALE_NATIVE;
 	}
