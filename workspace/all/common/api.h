@@ -464,7 +464,9 @@ typedef struct PAD_Context {
 	PAD_Axis laxis;
 	PAD_Axis raxis;
 } PAD_Context;
-extern PAD_Context pad;
+// The pad state lives inside api.c; reach it through this accessor rather than
+// a bare extern global. Most consumers should use the PAD_* facade instead.
+PAD_Context* PAD_getContext(void);
 
 #define PAD_REPEAT_DELAY	300
 #define PAD_REPEAT_INTERVAL 100

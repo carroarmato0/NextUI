@@ -2938,7 +2938,8 @@ FALLBACK_IMPLEMENTATION int PLAT_lidChanged(int *state) { return 0; }
 
 ///////////////////////////////
 
-PAD_Context pad;
+static PAD_Context pad;
+PAD_Context* PAD_getContext(void) { return &pad; }
 
 #define AXIS_DEADZONE 0x4000
 void PAD_setAnalog(int neg_id, int pos_id, int value, int repeat_at)

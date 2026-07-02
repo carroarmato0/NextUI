@@ -224,12 +224,12 @@ int16_t input_state_callback(unsigned port, unsigned device, unsigned index, uns
 	}
 	else if (port==0 && device==RETRO_DEVICE_ANALOG) {
 		if (index==RETRO_DEVICE_INDEX_ANALOG_LEFT) {
-			if (id==RETRO_DEVICE_ID_ANALOG_X) return pad.laxis.x;
-			else if (id==RETRO_DEVICE_ID_ANALOG_Y) return pad.laxis.y;
+			if (id==RETRO_DEVICE_ID_ANALOG_X) return PAD_getContext()->laxis.x;
+			else if (id==RETRO_DEVICE_ID_ANALOG_Y) return PAD_getContext()->laxis.y;
 		}
 		else if (index==RETRO_DEVICE_INDEX_ANALOG_RIGHT) {
-			if (id==RETRO_DEVICE_ID_ANALOG_X) return pad.raxis.x;
-			else if (id==RETRO_DEVICE_ID_ANALOG_Y) return pad.raxis.y;
+			if (id==RETRO_DEVICE_ID_ANALOG_X) return PAD_getContext()->raxis.x;
+			else if (id==RETRO_DEVICE_ID_ANALOG_Y) return PAD_getContext()->raxis.y;
 		}
 	}
 	return 0;
