@@ -29,6 +29,14 @@ extern "C" {
 
 ///////////////////////////////////////
 
+// g++ 8.3 miscompiles a GNU compound-literal argument -- passing
+// (char**)(const char*[]){ ... } directly to a function makes the callee read
+// garbage (the array's storage is dropped), so button-hint groups came back
+// zero-width and drew nothing. Routing the hints through a *named* local array
+// (via a statement expression) compiles correctly. Same call, safe codegen.
+#define BTN_HINTS(primary, dst, align_right, ...) \
+	({ const char* _bh[] = { __VA_ARGS__ }; GFX_blitButtonGroup((char**)_bh, (primary), (dst), (align_right)); })
+
 static void StringArray_free(std::vector<char*>& self) {
 	for (char* s : self) free(s);
 	self.clear();
@@ -2286,9 +2294,9 @@ int main (int argc, char *argv[]) {
 
 				// buttons (duped and trimmed from below)
 				if (show_setting && !GetHDMI()) GFX_blitHardwareHints(screen, show_setting);
-				else GFX_blitButtonGroup((char**)(const char*[]){ BTN_SLEEP==BTN_POWER?"POWER":"MENU","SLEEP",  NULL }, 0, screen, 0);
+				else BTN_HINTS(0, screen, 0, BTN_SLEEP==BTN_POWER?"POWER":"MENU","SLEEP", NULL);
 
-				GFX_blitButtonGroup((char**)(const char*[]){ "B","BACK", "A","OPEN", NULL }, 1, screen, 1);
+				BTN_HINTS(1, screen, 1, "B","BACK", "A","OPEN", NULL);
 
 				if(CFG_getShowQuickswitcherUI()) {
 					#define MENU_ITEM_SIZE 72 // item size, top line
@@ -2453,10 +2461,10 @@ int main (int argc, char *argv[]) {
 						SDL_FreeSurface(text);
 					}
 
-					GFX_blitButtonGroup((char**)(const char*[]){ "B","BACK",  NULL }, 0, screen, 0);
+					BTN_HINTS(0, screen, 0, "B","BACK", NULL);
 
-					if(can_resume) GFX_blitButtonGroup((char**)(const char*[]){ "Y", "REMOVE", "A","RESUME", NULL }, 1, screen, 1);
-					else GFX_blitButtonGroup((char**)(const char*[]){ "A","OPEN", NULL }, 1, screen, 1);
+					if(can_resume) BTN_HINTS(1, screen, 1, "Y","REMOVE", "A","RESUME", NULL);
+					else BTN_HINTS(1, screen, 1, "A","OPEN", NULL);
 
 					if(has_preview) {
 						// lotta memory churn here
@@ -2543,7 +2551,7 @@ int main (int argc, char *argv[]) {
 					SDL_Rect preview_rect = {ox,oy,screen->w,screen->h};
 					SDL_FillRect(screen, &preview_rect, 0);
 					GFX_blitMessage(font.large, "No Recents", screen, &preview_rect);
-					GFX_blitButtonGroup((char**)(const char*[]){ "B","BACK", NULL }, 1, screen, 1);
+					BTN_HINTS(1, screen, 1, "B","BACK", NULL);
 				}
 
 				GFX_flipHidden();
@@ -2640,23 +2648,23 @@ int main (int argc, char *argv[]) {
 
 				// buttons
 				if (show_setting && !GetHDMI()) GFX_blitHardwareHints(screen, show_setting);
-				else if (can_resume) GFX_blitButtonGroup((char**)(const char*[]){ "X","RESUME",  NULL }, 0, screen, 0);
-				else GFX_blitButtonGroup((char**)(const char*[]){
+				else if (can_resume) BTN_HINTS(0, screen, 0, "X","RESUME", NULL);
+				else BTN_HINTS(0, screen, 0,
 					BTN_SLEEP==BTN_POWER?"POWER":"MENU",
 					BTN_SLEEP==BTN_POWER||simple_mode?"SLEEP":"INFO",
-					NULL }, 0, screen, 0);
+					NULL);
 
 				if (total==0) {
 					if ((int)stack.size()>1) {
-						GFX_blitButtonGroup((char**)(const char*[]){ "B","BACK",  NULL }, 0, screen, 1);
+						BTN_HINTS(0, screen, 1, "B","BACK", NULL);
 					}
 				}
 				else {
 					if ((int)stack.size()>1) {
-						GFX_blitButtonGroup((char**)(const char*[]){ "B","BACK", "A","OPEN", NULL }, 1, screen, 1);
+						BTN_HINTS(1, screen, 1, "B","BACK", "A","OPEN", NULL);
 					}
 					else {
-						GFX_blitButtonGroup((char**)(const char*[]){ "A","OPEN", NULL }, 0, screen, 1);
+						BTN_HINTS(0, screen, 1, "A","OPEN", NULL);
 					}
 				}
 
