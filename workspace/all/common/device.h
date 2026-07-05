@@ -23,6 +23,12 @@ typedef struct DeviceDescriptor {
 	const char* cpu_speed_path;
 	const char* gpu_temp_path;
 	const char* rumble_gpio_path;
+	// GPU frequency/utilization: some devices read a sysfs node, others report
+	// a fixed clock. gpu_freq_path NULL => PLAT_getGPUSpeed uses gpu_speed_fixed;
+	// gpu_usage_path NULL => GPU utilization is unavailable on this device.
+	int gpu_speed_fixed;
+	const char* gpu_freq_path;
+	const char* gpu_usage_path;
 } DeviceDescriptor;
 extern const DeviceDescriptor* deviceModel;
 

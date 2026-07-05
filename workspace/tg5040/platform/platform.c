@@ -41,6 +41,9 @@ static const DeviceDescriptor TG5040_BRICK = {
 	.joy_l3 = 9, .joy_r3 = 10, .joy_plus = 14, .joy_minus = 13,
 	.cpu_speed_path = TG5040_CPU_SPEED_PATH,
 	.gpu_temp_path = TG5040_GPU_TEMP_PATH,
+	.gpu_speed_fixed = 660,
+	.gpu_freq_path = NULL,
+	.gpu_usage_path = NULL,
 	.rumble_gpio_path = TG5040_RUMBLE_GPIO,
 };
 static const DeviceDescriptor TG5040_SMART_PRO = {
@@ -49,6 +52,9 @@ static const DeviceDescriptor TG5040_SMART_PRO = {
 	.joy_l3 = JOY_NA, .joy_r3 = JOY_NA, .joy_plus = 128, .joy_minus = 129,
 	.cpu_speed_path = TG5040_CPU_SPEED_PATH,
 	.gpu_temp_path = TG5040_GPU_TEMP_PATH,
+	.gpu_speed_fixed = 660,
+	.gpu_freq_path = NULL,
+	.gpu_usage_path = NULL,
 	.rumble_gpio_path = TG5040_RUMBLE_GPIO,
 };
 // Default to Smart Pro so the geometry/button macros are valid even before
@@ -167,7 +173,7 @@ void PLAT_getGPUTemp() {
 }
 
 void PLAT_getGPUSpeed() {
-	perf.gpu_speed = 660; // MHz
+	perf.gpu_speed = deviceModel->gpu_speed_fixed; // MHz
 }
 
 static struct WIFI_connection connection = {
