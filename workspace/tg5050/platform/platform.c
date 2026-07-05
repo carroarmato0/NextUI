@@ -140,15 +140,15 @@ void PLAT_getCPUTemp() {
 
 void PLAT_getCPUSpeed()
 {
-	perf.cpu_speed = getInt("/sys/devices/system/cpu/cpu4/cpufreq/scaling_cur_freq")/1000;
+	perf.cpu_speed = getInt(deviceModel->cpu_speed_path)/1000;
 }
 
 void PLAT_getGPUTemp() {
-	perf.gpu_temp = getInt("/sys/devices/virtual/thermal/thermal_zone5/temp")/1000;
+	perf.gpu_temp = getInt(deviceModel->gpu_temp_path)/1000;
 }
 
 void PLAT_getGPUSpeed() {
-	perf.gpu_speed = getInt("/sys/devices/platform/soc@3000000/1800000.gpu/devfreq/1800000.gpu/cur_freq")/1000000;
+	perf.gpu_speed = deviceModel->gpu_freq_path ? getInt(deviceModel->gpu_freq_path)/1000000 : deviceModel->gpu_speed_fixed; // MHz
 }
 
 void PLAT_getGPUUsage() {

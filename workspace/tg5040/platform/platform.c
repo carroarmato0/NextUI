@@ -173,7 +173,7 @@ void PLAT_getGPUTemp() {
 }
 
 void PLAT_getGPUSpeed() {
-	perf.gpu_speed = deviceModel->gpu_speed_fixed; // MHz
+	perf.gpu_speed = deviceModel->gpu_freq_path ? getInt(deviceModel->gpu_freq_path)/1000000 : deviceModel->gpu_speed_fixed; // MHz
 }
 
 static struct WIFI_connection connection = {
