@@ -17,6 +17,26 @@
 
 #include "defines.h"
 #include "platform.h"
+
+// Smart Pro S device descriptor. Single model -- no runtime variant selector
+// (unlike tg5040, which picks Brick vs Smart Pro from DEVICE=brick).
+#define TG5050_CPU_SPEED_PATH  "/sys/devices/system/cpu/cpu4/cpufreq/scaling_cur_freq"
+#define TG5050_GPU_TEMP_PATH   "/sys/devices/virtual/thermal/thermal_zone5/temp"
+#define TG5050_GPU_FREQ_PATH   "/sys/devices/platform/soc@3000000/1800000.gpu/devfreq/1800000.gpu/cur_freq"
+#define TG5050_GPU_USAGE_PATH  "/sys/devices/platform/soc@3000000/1800000.gpu/sunxi_gpu/sunxi_gpu_freq"
+#define TG5050_RUMBLE_GPIO     "/sys/class/gpio/gpio236/value"
+static const DeviceDescriptor TG5050 = {
+	.scale = 2, .width = 1280, .height = 720,
+	.main_row_count = 10, .quick_switcher_count = 4, .padding = 10,
+	.joy_l3 = 9, .joy_r3 = 10, .joy_plus = 128, .joy_minus = 129,
+	.cpu_speed_path = TG5050_CPU_SPEED_PATH,
+	.gpu_temp_path = TG5050_GPU_TEMP_PATH,
+	.gpu_speed_fixed = 0,
+	.gpu_freq_path = TG5050_GPU_FREQ_PATH,
+	.gpu_usage_path = TG5050_GPU_USAGE_PATH,
+	.rumble_gpio_path = TG5050_RUMBLE_GPIO,
+};
+const DeviceDescriptor* deviceModel = &TG5050;
 #include "api.h"
 #include "utils.h"
 
