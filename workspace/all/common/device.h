@@ -1,0 +1,29 @@
+#ifndef DEVICE_H
+#define DEVICE_H
+
+// A device model is described by data, not code: the fields below are the
+// only things that differ between hardware variants. Each platform defines
+// one or more descriptors and points deviceModel at the active one (see
+// resolveDeviceModel in the platform layer). Adding a device becomes a
+// matter of adding a descriptor rather than another runtime branch.
+typedef struct DeviceDescriptor {
+	int scale;                 // FIXED_SCALE
+	int width;                 // FIXED_WIDTH
+	int height;                // FIXED_HEIGHT
+	int main_row_count;        // MAIN_ROW_COUNT
+	int quick_switcher_count;  // QUICK_SWITCHER_COUNT
+	int padding;               // PADDING
+	int joy_l3;                // JOY_L3
+	int joy_r3;                // JOY_R3
+	int joy_plus;              // JOY_PLUS
+	int joy_minus;             // JOY_MINUS
+	// sysfs hardware nodes that differ across platforms -- the seams a future
+	// device redefines. Identical for Brick and Smart Pro; tg5050, for example,
+	// uses cpu4 not cpu0, thermal_zone5 not zone2, gpio236 not gpio227.
+	const char* cpu_speed_path;
+	const char* gpu_temp_path;
+	const char* rumble_gpio_path;
+} DeviceDescriptor;
+extern const DeviceDescriptor* deviceModel;
+
+#endif // DEVICE_H
