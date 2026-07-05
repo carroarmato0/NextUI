@@ -431,7 +431,7 @@ int toggle(char *path) {
         return 1;
     }
 }
-void putFile(char* path, char* contents) {
+void putFile(const char* path, char* contents) {
 	FILE* file = fopen(path, "w");
 	if (file) {
 		fputs(contents, file);
@@ -464,7 +464,7 @@ char* allocFile(char* path) { // caller must free!
 	}
 	return contents;
 }
-int getInt(char* path) {
+int getInt(const char* path) {
 	int i = 0;
     if(path == NULL)
         return i;
@@ -478,7 +478,7 @@ int getInt(char* path) {
 	}
 	return i;
 }
-void putInt(char* path, int value) {
+void putInt(const char* path, int value) {
 	char buffer[8];
 	sprintf(buffer, "%d", value);
 	putFile(path, buffer);

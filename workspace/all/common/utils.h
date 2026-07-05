@@ -36,11 +36,11 @@ void trimSortingMeta(char** str);
 int exists(char* path);
 void touch(char* path);
 int toggle(char *path); // creates or removes file
-void putFile(char *path, char *contents);
+void putFile(const char *path, char *contents);
 char* allocFile(char* path); // caller must free
 void getFile(char* path, char* buffer, size_t buffer_size);
-void putInt(char* path, int value);
-int getInt(char* path);
+void putInt(const char* path, int value);
+int getInt(const char* path);
 
 uint64_t getMicroseconds(void);
 
