@@ -4,6 +4,11 @@
 #include <errno.h>
 #include <unistd.h>
 
+// Project C headers declare C-linkage symbols (core, game, LOG_*, the libretro
+// streams API, …) defined in the still-C translation units. Include them as
+// extern "C" so this C++ unit links against the unmangled names. (Same pattern
+// as ma_audio.cpp.)
+extern "C" {
 #include "ma_internal.h"
 #include "ra_integration.h"
 #include "notification.h"
@@ -14,6 +19,7 @@
 #endif
 
 #include "ma_saves.h"
+}
 
 ///////////////////////////////////////
 
@@ -212,6 +218,15 @@ int State_read(void) { // from picoarch
 	int was_ff = ff.active;
 	ff.active = 0;
 
+	// Hoisted above the first `goto error` below: C++ forbids a goto that jumps
+	// over a variable's initialization into its scope, and the error: label is
+	// in scope for these. state_rzfile in particular MUST be NULL before any
+	// goto reaches error: (which reads it). filename/state need no hoist.
+	uint8_t rastate_header[RASTATE_HEADER_SIZE] = {0};
+#ifdef HAS_SRM
+	rzipstream_t *state_rzfile = NULL;
+#endif
+
 	void *state = calloc(1, state_size);
 	if (!state) {
 		LOG_error("Couldn't allocate memory for state\n");
@@ -221,11 +236,7 @@ int State_read(void) { // from picoarch
 	char filename[MAX_PATH];
 	State_getPath(filename);
 
-	uint8_t rastate_header[RASTATE_HEADER_SIZE] = {0};
-
 #ifdef HAS_SRM
-	rzipstream_t *state_rzfile = NULL;
-
 	state_rzfile = rzipstream_open(filename, RETRO_VFS_FILE_ACCESS_READ);
 	if(!state_rzfile) {
 	  if (state_slot!=8) { // st8 is a default state in MiniUI and may not exist, that's okay

@@ -1,9 +1,15 @@
-#include "ma_internal.h"
-#include "ma_rewind.h"
-
 #include <string.h>
 #include <time.h>
 #include <lz4.h>
+
+// Project C headers declare C-linkage symbols (core, rewind_ctx, rewind_st, ff,
+// LOG_*, …) defined in the still-C translation units. Include them as extern "C"
+// so this C++ unit links against the unmangled names. (Same pattern as
+// ma_audio.cpp.)
+extern "C" {
+#include "ma_internal.h"
+#include "ma_rewind.h"
+}
 
 RewindContext rewind_ctx = {0};
 
@@ -301,14 +307,14 @@ int Rewind_init(size_t state_size) {
 		LOG_info("Rewind: config enable=%i bufferMB=%i interval=%ims audio=%i compression=raw\n",
 			enable, buf_mb, gran, audio);
 	}
-	rewind_ctx.buffer = calloc(1, rewind_ctx.capacity);
+	rewind_ctx.buffer = (decltype(rewind_ctx.buffer))calloc(1, rewind_ctx.capacity);
 	if (!rewind_ctx.buffer) {
 		LOG_error("Rewind: failed to allocate buffer\n");
 		return 0;
 	}
 
 	rewind_ctx.state_size = state_size;
-	rewind_ctx.state_buf = calloc(1, state_size);
+	rewind_ctx.state_buf = (decltype(rewind_ctx.state_buf))calloc(1, state_size);
 	if (!rewind_ctx.state_buf) {
 		LOG_error("Rewind: failed to allocate state buffer\n");
 		Rewind_free();
@@ -317,7 +323,7 @@ int Rewind_init(size_t state_size) {
 
 	rewind_ctx.scratch_size = LZ4_compressBound((int)state_size);
 	if (!rewind_ctx.compress) rewind_ctx.scratch_size = state_size;
-	rewind_ctx.scratch = calloc(1, rewind_ctx.scratch_size);
+	rewind_ctx.scratch = (decltype(rewind_ctx.scratch))calloc(1, rewind_ctx.scratch_size);
 	if (!rewind_ctx.scratch) {
 		LOG_error("Rewind: failed to allocate scratch buffer\n");
 		Rewind_free();
@@ -325,9 +331,9 @@ int Rewind_init(size_t state_size) {
 	}
 
 	// Allocate delta compression buffers (separate for encode/decode to avoid race conditions)
-	rewind_ctx.prev_state_enc = calloc(1, state_size);
-	rewind_ctx.prev_state_dec = calloc(1, state_size);
-	rewind_ctx.delta_buf = calloc(1, state_size);
+	rewind_ctx.prev_state_enc = (decltype(rewind_ctx.prev_state_enc))calloc(1, state_size);
+	rewind_ctx.prev_state_dec = (decltype(rewind_ctx.prev_state_dec))calloc(1, state_size);
+	rewind_ctx.delta_buf = (decltype(rewind_ctx.delta_buf))calloc(1, state_size);
 	if (!rewind_ctx.prev_state_enc || !rewind_ctx.prev_state_dec || !rewind_ctx.delta_buf) {
 		LOG_error("Rewind: failed to allocate delta buffers\n");
 		Rewind_free();
@@ -339,7 +345,7 @@ int Rewind_init(size_t state_size) {
 	int entry_cap = rewind_ctx.capacity / REWIND_ENTRY_SIZE_HINT;
 	if (entry_cap < REWIND_MIN_ENTRIES) entry_cap = REWIND_MIN_ENTRIES;
 	rewind_ctx.entry_capacity = entry_cap;
-	rewind_ctx.entries = calloc(entry_cap, sizeof(RewindEntry));
+	rewind_ctx.entries = (decltype(rewind_ctx.entries))calloc(entry_cap, sizeof(RewindEntry));
 	if (!rewind_ctx.entries) {
 		LOG_error("Rewind: failed to allocate entry table\n");
 		Rewind_free();
@@ -377,18 +383,18 @@ int Rewind_init(size_t state_size) {
 	// Larger states need a deeper pool to avoid drops; cap to a modest size to limit RAM
 	rewind_ctx.pool_size = (state_size > REWIND_LARGE_STATE_THRESHOLD) ? REWIND_POOL_SIZE_LARGE : REWIND_POOL_SIZE_SMALL;
 	if (rewind_ctx.pool_size < 1) rewind_ctx.pool_size = 1;
-	rewind_ctx.capture_pool = calloc(rewind_ctx.pool_size, sizeof(uint8_t*));
-	rewind_ctx.capture_gen = calloc(rewind_ctx.pool_size, sizeof(unsigned int));
-	rewind_ctx.capture_busy = calloc(rewind_ctx.pool_size, sizeof(uint8_t));
-	rewind_ctx.free_stack = calloc(rewind_ctx.pool_size, sizeof(int));
-	rewind_ctx.queue = calloc(rewind_ctx.pool_size, sizeof(int));
+	rewind_ctx.capture_pool = (decltype(rewind_ctx.capture_pool))calloc(rewind_ctx.pool_size, sizeof(uint8_t*));
+	rewind_ctx.capture_gen = (decltype(rewind_ctx.capture_gen))calloc(rewind_ctx.pool_size, sizeof(unsigned int));
+	rewind_ctx.capture_busy = (decltype(rewind_ctx.capture_busy))calloc(rewind_ctx.pool_size, sizeof(uint8_t));
+	rewind_ctx.free_stack = (decltype(rewind_ctx.free_stack))calloc(rewind_ctx.pool_size, sizeof(int));
+	rewind_ctx.queue = (decltype(rewind_ctx.queue))calloc(rewind_ctx.pool_size, sizeof(int));
 	if (!rewind_ctx.capture_pool || !rewind_ctx.capture_gen || !rewind_ctx.capture_busy || !rewind_ctx.free_stack || !rewind_ctx.queue) {
 		LOG_error("Rewind: failed to allocate async capture buffers\n");
 		Rewind_free();
 		return 0;
 	}
 	for (int i = 0; i < rewind_ctx.pool_size; i++) {
-		rewind_ctx.capture_pool[i] = calloc(1, state_size);
+		rewind_ctx.capture_pool[i] = (uint8_t*)calloc(1, state_size);
 		if (!rewind_ctx.capture_pool[i]) {
 			LOG_error("Rewind: failed to allocate capture slot %i\n", i);
 			Rewind_free();

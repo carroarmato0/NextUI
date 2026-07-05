@@ -1,9 +1,15 @@
-#include "ma_internal.h"
-#include "ma_options.h"
-
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+
+// Project C headers declare C-linkage symbols (config, core, LOG_*, …) defined
+// in the still-C translation units. Include them as extern "C" so this C++ unit
+// links against the unmangled names. calloc() results are cast to (decltype(LHS))
+// because C++ won't implicitly convert void*. (Same pattern as ma_audio.cpp.)
+extern "C" {
+#include "ma_internal.h"
+#include "ma_options.h"
+}
 
 int Option_getValueIndex(Option* item, const char* value) {
 	if (!value || !item || !item->values) return 0;
@@ -45,7 +51,7 @@ void OptionList_init(const struct retro_core_option_definition *defs) {
 	config.core.count = count;
 	config.core.categories = NULL; // There is no categories in v1 definition
 	if (count) {
-		config.core.options = calloc(count+1, sizeof(Option));
+		config.core.options = (decltype(config.core.options))calloc(count+1, sizeof(Option));
 
 		for (int i=0; i<config.core.count; i++) {
 			int len;
@@ -60,10 +66,10 @@ void OptionList_init(const struct retro_core_option_definition *defs) {
 
 			if (def->info) {
 				len = strlen(def->info) + 1;
-				item->desc = calloc(len, sizeof(char));
+				item->desc = (decltype(item->desc))calloc(len, sizeof(char));
 				strncpy(item->desc, def->info, len);
 
-				item->full = calloc(len, sizeof(char));
+				item->full = (decltype(item->full))calloc(len, sizeof(char));
 				strncpy(item->full, item->desc, len);
 				// item->desc[len-1] = '\0';
 
@@ -74,8 +80,8 @@ void OptionList_init(const struct retro_core_option_definition *defs) {
 			for (count=0; def->values[count].value; count++);
 
 			item->count = count;
-			item->values = calloc(count+1, sizeof(char*));
-			item->labels = calloc(count+1, sizeof(char*));
+			item->values = (decltype(item->values))calloc(count+1, sizeof(char*));
+			item->labels = (decltype(item->labels))calloc(count+1, sizeof(char*));
 
 			for (int j=0; j<count; j++) {
 				const char* value = def->values[j].value;
@@ -119,7 +125,7 @@ void OptionList_v2_init(const struct retro_core_options_v2 *opt_defs) {
 	// TODO: add frontend options to this? so the can use the same override method? eg. minarch_*
 
 	if (cat_count) {
-		config.core.categories = calloc(cat_count + 1, sizeof(OptionCategory));
+		config.core.categories = (decltype(config.core.categories))calloc(cat_count + 1, sizeof(OptionCategory));
 
 		for (int i=0; i<cat_count; i++) {
 			const struct retro_core_option_v2_category *cat = &cats[i];
@@ -137,7 +143,7 @@ void OptionList_v2_init(const struct retro_core_options_v2 *opt_defs) {
 
 	config.core.count = count;
 	if (count) {
-		config.core.options = calloc(count+1, sizeof(Option));
+		config.core.options = (decltype(config.core.options))calloc(count+1, sizeof(Option));
 
 		for (int i=0; i<config.core.count; i++) {
 			const struct retro_core_option_v2_definition *def = &defs[i];
@@ -158,8 +164,8 @@ void OptionList_v2_init(const struct retro_core_options_v2 *opt_defs) {
 			for (count=0; def->values[count].value; count++);
 
 			item->count = count;
-			item->values = calloc(count+1, sizeof(char*));
-			item->labels = calloc(count+1, sizeof(char*));
+			item->values = (decltype(item->values))calloc(count+1, sizeof(char*));
+			item->labels = (decltype(item->labels))calloc(count+1, sizeof(char*));
 
 			for (int j=0; j<count; j++) {
 				const char* value = def->values[j].value;
@@ -192,7 +198,7 @@ void OptionList_vars(const struct retro_variable *vars) {
 
 	config.core.count = count;
 	if (count) {
-		config.core.options = calloc(count+1, sizeof(Option));
+		config.core.options = (decltype(config.core.options))calloc(count+1, sizeof(Option));
 
 		for (int i=0; i<config.core.count; i++) {
 			int len;
@@ -217,8 +223,8 @@ void OptionList_vars(const struct retro_variable *vars) {
 			count += 1; // last entry after final '|'
 
 			item->count = count;
-			item->values = calloc(count+1, sizeof(char*));
-			item->labels = calloc(count+1, sizeof(char*));
+			item->values = (decltype(item->values))calloc(count+1, sizeof(char*));
+			item->labels = (decltype(item->labels))calloc(count+1, sizeof(char*));
 
 			tmp = opt;
 			int j;
