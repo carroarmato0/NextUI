@@ -93,6 +93,7 @@ static Entry* Entry_new(char* path, int type) {
 
 static Entry* Entry_newNamed(char* path, int type, char* displayName) {
 	Entry *self = Entry_new(path, type);
+	free(self->name); // Entry_new already strdup'd a display name; replace it
 	self->name = strdup(displayName);
 	return self;
 }
