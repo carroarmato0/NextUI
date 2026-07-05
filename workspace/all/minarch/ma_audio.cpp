@@ -1,8 +1,15 @@
 #include <stdbool.h>
 #include <SDL2/SDL.h>
+
+// minarch's C headers declare C-linkage symbols (core, SND_*, LOG_*, …) that
+// are defined in the still-C translation units. Include them as extern "C" so
+// this C++ unit links against the unmangled names. (Same pattern nextui.cpp and
+// settings use around api.h.)
+extern "C" {
 #include <msettings.h>
 #include "ma_internal.h"
 #include "ma_audio.h"
+}
 
 static bool resetAudio = false;
 
@@ -34,11 +41,14 @@ void Audio_checkAndResetIfNeeded(void) {
 void audio_sample_callback(int16_t left, int16_t right) {
 	if (rewind_st.active && !rewind_ctx.audio) return;
 	if (!ff.active || ff.audio) {
+		// Named local rather than a compound literal: g++ 8.3 silently
+		// miscompiles &(const SND_Frame){...} passed as a function argument.
+		const SND_Frame frame = {left, right};
 		if (use_core_fps || ff.active) {
-			SND_batchSamples_fixed_rate(&(const SND_Frame){left,right}, 1);
+			SND_batchSamples_fixed_rate(&frame, 1);
 		}
 		else {
-			SND_batchSamples(&(const SND_Frame){left,right}, 1);
+			SND_batchSamples(&frame, 1);
 		}
 	}
 }
