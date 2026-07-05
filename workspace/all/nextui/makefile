@@ -44,6 +44,7 @@ LDFLAGS	 += -lmsettings
 OBJ_DIR = build/$(PLATFORM)
 OBJS = $(addprefix $(OBJ_DIR)/,$(notdir $(CSOURCE:.c=.o))) \
        $(addprefix $(OBJ_DIR)/,$(notdir $(CXXSOURCE:.cpp=.o)))
+DEPS = $(OBJS:.o=.d)
 
 PRODUCT= build/$(PLATFORM)/$(TARGET).elf
 
@@ -57,16 +58,18 @@ $(PRODUCT): $(OBJS)
 	$(CXX) $(OBJS) -o $(PRODUCT) $(LDFLAGS) -lstdc++
 
 $(OBJ_DIR)/%.o: %.c | $(OBJ_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
 
 $(OBJ_DIR)/%.o: %.cpp | $(OBJ_DIR)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -MMD -MP -c $< -o $@
 
 $(OBJ_DIR):
 	mkdir -p $(OBJ_DIR)
 
+-include $(DEPS)
+
 clean:
-	rm -f $(PRODUCT) $(OBJS)
+	rm -f $(PRODUCT) $(OBJS) $(DEPS)
 
 $(PREFIX_LOCAL)/include/msettings.h:
 	cd ../../$(PLATFORM)/libmsettings && make

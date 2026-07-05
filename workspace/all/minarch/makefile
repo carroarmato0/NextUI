@@ -110,6 +110,7 @@ CFLAGS += -DBUILD_DATE=\"${BUILD_DATE}\" -DBUILD_HASH=\"${BUILD_HASH}\"
 OBJ_DIR = build/$(PLATFORM)
 OBJS = $(addprefix $(OBJ_DIR)/,$(notdir $(CSOURCE:.c=.o))) \
        $(addprefix $(OBJ_DIR)/,$(notdir $(CXXSOURCE:.cpp=.o)))
+DEPS = $(OBJS:.o=.d)
 
 # Locate sources across their directories so single pattern rules suffice.
 vpath %.c   . ../common ../../$(PLATFORM)/platform
@@ -144,10 +145,10 @@ $(PRODUCT): $(OBJS)
 	$(CXX) $(OBJS) -o $(PRODUCT) $(LDFLAGS) -lstdc++
 
 $(OBJ_DIR)/%.o: %.c | $(OBJ_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
 
 $(OBJ_DIR)/%.o: %.cpp | $(OBJ_DIR)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -MMD -MP -c $< -o $@
 
 $(OBJ_DIR):
 	mkdir -p $(OBJ_DIR)
@@ -187,7 +188,9 @@ $(OBJECTS) :
 libsrm.a: $(OBJECTS)
 	cd libretro-common && $(AR) $(ARFLAGS) $@ $?
 
+-include $(DEPS)
+
 clean:
 	rm -f $(PRODUCT)
-	rm -f $(OBJS)
+	rm -f $(OBJS) $(DEPS)
 	rm -f $(OBJECTS) $(LIBRARY)
