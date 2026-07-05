@@ -1,7 +1,12 @@
+#include <string.h>
+
+// Project C headers declare C-linkage symbols (core, pad, PAD_*, LOG_*, …)
+// defined in the still-C translation units. Include them as extern "C" so this
+// C++ unit links against the unmangled names. (Same pattern as ma_audio.cpp.)
+extern "C" {
 #include "ma_internal.h"
 #include "ma_input.h"
-
-#include <string.h>
+}
 
 int setFastForward(int enable) {
 	int val = enable ? 1 : 0;

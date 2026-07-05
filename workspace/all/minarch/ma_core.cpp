@@ -2,6 +2,13 @@
 #include <libgen.h>
 #include <string.h>
 
+// Project C headers declare C-linkage symbols (core, cheatcodes, the retro_*
+// callbacks, LOG_*, …) defined in the still-C translation units. Include them
+// as extern "C" so this C++ unit links against the unmangled names. dlsym()
+// returns void*, which C++ won't implicitly convert to a function pointer, so
+// each core.* / set_*_callback assignment casts to the field's decltype.
+// (Same header pattern as ma_audio.cpp.)
+extern "C" {
 #include "ma_internal.h"
 #include "ma_saves.h"
 #include "ma_video.h"
@@ -9,6 +16,7 @@
 #include "ma_input.h"
 #include "ma_cheats.h"
 #include "ma_core.h"
+}
 
 
 void Core_getName(char* in_name, char* out_name, size_t out_size) {
@@ -22,24 +30,24 @@ void Core_open(const char* core_path, const char* tag_name) {
 	
 	if (!core.handle) LOG_error("%s\n", dlerror());
 	
-	core.init = dlsym(core.handle, "retro_init");
-	core.deinit = dlsym(core.handle, "retro_deinit");
-	core.get_system_info = dlsym(core.handle, "retro_get_system_info");
-	core.get_system_av_info = dlsym(core.handle, "retro_get_system_av_info");
-	core.set_controller_port_device = dlsym(core.handle, "retro_set_controller_port_device");
-	core.reset = dlsym(core.handle, "retro_reset");
-	core.run = dlsym(core.handle, "retro_run");
-	core.serialize_size = dlsym(core.handle, "retro_serialize_size");
-	core.serialize = dlsym(core.handle, "retro_serialize");
-	core.unserialize = dlsym(core.handle, "retro_unserialize");
-	core.cheat_reset = dlsym(core.handle, "retro_cheat_reset");
-	core.cheat_set = dlsym(core.handle, "retro_cheat_set");
-	core.load_game = dlsym(core.handle, "retro_load_game");
-	core.load_game_special = dlsym(core.handle, "retro_load_game_special");
-	core.unload_game = dlsym(core.handle, "retro_unload_game");
-	core.get_region = dlsym(core.handle, "retro_get_region");
-	core.get_memory_data = dlsym(core.handle, "retro_get_memory_data");
-	core.get_memory_size = dlsym(core.handle, "retro_get_memory_size");
+	core.init = (decltype(core.init))dlsym(core.handle, "retro_init");
+	core.deinit = (decltype(core.deinit))dlsym(core.handle, "retro_deinit");
+	core.get_system_info = (decltype(core.get_system_info))dlsym(core.handle, "retro_get_system_info");
+	core.get_system_av_info = (decltype(core.get_system_av_info))dlsym(core.handle, "retro_get_system_av_info");
+	core.set_controller_port_device = (decltype(core.set_controller_port_device))dlsym(core.handle, "retro_set_controller_port_device");
+	core.reset = (decltype(core.reset))dlsym(core.handle, "retro_reset");
+	core.run = (decltype(core.run))dlsym(core.handle, "retro_run");
+	core.serialize_size = (decltype(core.serialize_size))dlsym(core.handle, "retro_serialize_size");
+	core.serialize = (decltype(core.serialize))dlsym(core.handle, "retro_serialize");
+	core.unserialize = (decltype(core.unserialize))dlsym(core.handle, "retro_unserialize");
+	core.cheat_reset = (decltype(core.cheat_reset))dlsym(core.handle, "retro_cheat_reset");
+	core.cheat_set = (decltype(core.cheat_set))dlsym(core.handle, "retro_cheat_set");
+	core.load_game = (decltype(core.load_game))dlsym(core.handle, "retro_load_game");
+	core.load_game_special = (decltype(core.load_game_special))dlsym(core.handle, "retro_load_game_special");
+	core.unload_game = (decltype(core.unload_game))dlsym(core.handle, "retro_unload_game");
+	core.get_region = (decltype(core.get_region))dlsym(core.handle, "retro_get_region");
+	core.get_memory_data = (decltype(core.get_memory_data))dlsym(core.handle, "retro_get_memory_data");
+	core.get_memory_size = (decltype(core.get_memory_size))dlsym(core.handle, "retro_get_memory_size");
 	
 	void (*set_environment_callback)(retro_environment_t);
 	void (*set_video_refresh_callback)(retro_video_refresh_t);
@@ -48,12 +56,12 @@ void Core_open(const char* core_path, const char* tag_name) {
 	void (*set_input_poll_callback)(retro_input_poll_t);
 	void (*set_input_state_callback)(retro_input_state_t);
 	
-	set_environment_callback = dlsym(core.handle, "retro_set_environment");
-	set_video_refresh_callback = dlsym(core.handle, "retro_set_video_refresh");
-	set_audio_sample_callback = dlsym(core.handle, "retro_set_audio_sample");
-	set_audio_sample_batch_callback = dlsym(core.handle, "retro_set_audio_sample_batch");
-	set_input_poll_callback = dlsym(core.handle, "retro_set_input_poll");
-	set_input_state_callback = dlsym(core.handle, "retro_set_input_state");
+	set_environment_callback = (decltype(set_environment_callback))dlsym(core.handle, "retro_set_environment");
+	set_video_refresh_callback = (decltype(set_video_refresh_callback))dlsym(core.handle, "retro_set_video_refresh");
+	set_audio_sample_callback = (decltype(set_audio_sample_callback))dlsym(core.handle, "retro_set_audio_sample");
+	set_audio_sample_batch_callback = (decltype(set_audio_sample_batch_callback))dlsym(core.handle, "retro_set_audio_sample_batch");
+	set_input_poll_callback = (decltype(set_input_poll_callback))dlsym(core.handle, "retro_set_input_poll");
+	set_input_state_callback = (decltype(set_input_state_callback))dlsym(core.handle, "retro_set_input_state");
 	
 	struct retro_system_info info = {};
 	core.get_system_info(&info);

@@ -1,9 +1,14 @@
-#include "ma_internal.h"
-#include "ma_cheats.h"
-
 #include <ctype.h>
 #include <string.h>
 #include <glob.h>
+
+// Project C headers declare C-linkage symbols (cheatcodes, core, LOG_*, …)
+// defined in the still-C translation units. Include them as extern "C" so this
+// C++ unit links against the unmangled names. (Same pattern as ma_audio.cpp.)
+extern "C" {
+#include "ma_internal.h"
+#include "ma_cheats.h"
+}
 
 // based on picoarch/cheat.c
 
@@ -115,7 +120,7 @@ static int parse_cheats(struct Cheats *cheats, FILE *file) {
 				if (len == 0)
 					continue;
 
-				cheat->name = calloc(len+1, sizeof(char));
+				cheat->name = (char *)calloc(len+1, sizeof(char));
 				if (!cheat->name)
 					goto finish;
 
@@ -123,7 +128,7 @@ static int parse_cheats(struct Cheats *cheats, FILE *file) {
 				truncateString((char *)cheat->name, CHEAT_MAX_DESC_LEN);
 
 				if (len >= CHEAT_MAX_DESC_LEN) {
-					cheat->info = calloc(len+1, sizeof(char));
+					cheat->info = (char *)calloc(len+1, sizeof(char));
 					if (!cheat->info)
 						goto finish;
 
@@ -141,7 +146,7 @@ static int parse_cheats(struct Cheats *cheats, FILE *file) {
 				if (len == 0)
 					continue;
 
-				cheat->code = calloc(len+1, sizeof(char));
+				cheat->code = (char *)calloc(len+1, sizeof(char));
 				if (!cheat->code)
 					goto finish;
 
@@ -235,7 +240,7 @@ void Cheat_getPaths(char paths[CHEAT_MAX_PATHS][MAX_PATH], int* count) {
 	// Log all path candidates
 	{
 		size_t list_sz = *count * (MAX_PATH + 2) + 1;
-		char *list = calloc(list_sz, 1); // path + separator for each entry
+		char *list = (char *)calloc(list_sz, 1); // path + separator for each entry
 		if (list != NULL) {
 			int i;
 			for (i=0; i<*count; i++) {
@@ -326,7 +331,7 @@ bool Cheats_load() {
 		goto finish;
 	}
 
-	cheatcodes.cheats = calloc(cheatcodes.count, sizeof(struct Cheat));
+	cheatcodes.cheats = (struct Cheat *)calloc(cheatcodes.count, sizeof(struct Cheat));
 	if (!cheatcodes.cheats) {
 		LOG_error("Couldn't allocate memory for cheats\n");
 		goto finish;
@@ -347,4 +352,10 @@ finish:
 
 	if (file)
 		fclose(file);
+
+	// Was missing in the C original: the function fell off the end, returning a
+	// garbage register value (UB in C++, undefined-but-tolerated in C). The
+	// caller (Core_load) gates Core_applyCheats on this, so return the real
+	// success flag so cheats apply exactly when a file was parsed successfully.
+	return success;
 }

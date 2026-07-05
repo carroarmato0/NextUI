@@ -1,9 +1,15 @@
 #include <SDL2/SDL.h>
+
+// Project C headers declare C-linkage symbols (core, rewind_st, ff, LOG_*, …)
+// defined in the still-C translation units. Include them as extern "C" so this
+// C++ unit links against the unmangled names. (Same pattern as ma_audio.cpp.)
+extern "C" {
 #include "ma_internal.h"
 #include "ma_rewind.h"
 #include "ma_input.h"
 #include "ma_config.h"
 #include "ma_runframe.h"
+}
 
 void chooseSyncRef(void) {
 	switch (sync_ref) {
