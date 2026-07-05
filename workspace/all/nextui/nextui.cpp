@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <thread>
 #include "core/str.h"
+#include "core/surface.h"
 #include "core/thread_safe_queue.h"
 
 extern "C" {
@@ -1591,12 +1592,11 @@ static void updatePillTextSurface(const char* entry_name, int move_w, SDL_Color 
 	if (crop_w <= 0) return;
 
 	SDL_LockMutex(fontMutex);
-	SDL_Surface* tmp = TTF_RenderUTF8_Blended(GFX_getFonts()->large, entry_name, text_color);
+	core::SurfacePtr tmp{TTF_RenderUTF8_Blended(GFX_getFonts()->large, entry_name, text_color)};
 	SDL_UnlockMutex(fontMutex);
 	if (!tmp) return;
 
-	SDL_Surface* converted = SDL_ConvertSurfaceFormat(tmp, screen->format->format, 0);
-	SDL_FreeSurface(tmp);
+	core::SurfacePtr converted{SDL_ConvertSurfaceFormat(tmp.get(), screen->format->format, 0)};
 	if (!converted) return;
 
 	SDL_Rect crop_rect = { 0, 0, crop_w, converted->h };
@@ -1604,9 +1604,8 @@ static void updatePillTextSurface(const char* entry_name, int move_w, SDL_Color 
 		0, crop_rect.w, crop_rect.h, screen->format->BitsPerPixel, screen->format->format
 	);
 	if (cropped) {
-		SDL_BlitSurface(converted, &crop_rect, cropped, NULL);
+		SDL_BlitSurface(converted.get(), &crop_rect, cropped, NULL);
 	}
-	SDL_FreeSurface(converted);
 	if (!cropped) return;
 
 	SDL_LockMutex(animMutex);
@@ -1637,10 +1636,9 @@ static void bgLoadWorkerLoop(void) {
 	ImageLoadRequest req;
 	while (bgLoadQueue.pop(req)) {
 		SDL_Surface* surface = NULL;
-		SDL_Surface* raw = IMG_Load(req.path.c_str());
+		core::SurfacePtr raw{IMG_Load(req.path.c_str())};
 		if (raw) {
-			surface = SDL_ConvertSurfaceFormat(raw, screen->format->format, 0);
-			SDL_FreeSurface(raw);
+			surface = SDL_ConvertSurfaceFormat(raw.get(), screen->format->format, 0);
 		}
 		req.callback(surface); // onBackgroundLoaded, hands off under bgMutex
 	}
@@ -1679,10 +1677,9 @@ static void thumbLoadWorkerLoop(void) {
 	while (thumbLoadQueue.pop(req)) {
 		SDL_Surface* surface = NULL;
 		if (access(req.path.c_str(), F_OK) == 0) {
-			SDL_Surface* raw = IMG_Load(req.path.c_str());
+			core::SurfacePtr raw{IMG_Load(req.path.c_str())};
 			if (raw) {
-				surface = SDL_ConvertSurfaceFormat(raw, screen->format->format, 0);
-				SDL_FreeSurface(raw);
+				surface = SDL_ConvertSurfaceFormat(raw.get(), screen->format->format, 0);
 			}
 		}
 		req.callback(surface); // onThumbLoaded, hands off under thumbMutex
@@ -1917,8 +1914,8 @@ int main (int argc, char *argv[]) {
 	char folderBgPath[1024];
 	folderbgbmp = NULL;
 
-	SDL_Surface * blackBG = SDL_CreateRGBSurfaceWithFormat(0,screen->w,screen->h,screen->format->BitsPerPixel,screen->format->format);
-	SDL_FillRect(blackBG,NULL,SDL_MapRGBA(screen->format,0,0,0,255));
+	core::SurfacePtr blackBG{SDL_CreateRGBSurfaceWithFormat(0,screen->w,screen->h,screen->format->BitsPerPixel,screen->format->format)};
+	SDL_FillRect(blackBG.get(),NULL,SDL_MapRGBA(screen->format,0,0,0,255));
 
 	SDL_LockMutex(animMutex);
 	globalpill = SDL_CreateRGBSurfaceWithFormat(SDL_SWSURFACE, screen->w, SCALE1(PILL_SIZE), FIXED_DEPTH, screen->format->format);
@@ -2234,13 +2231,12 @@ int main (int argc, char *argv[]) {
 		}
 
 		if(dirty) {
-			SDL_Surface *tmpOldScreen = NULL;
-			SDL_Surface * switcherSur = NULL;
+			core::SurfacePtr tmpOldScreen;
+			core::SurfacePtr switcherSur;
 			// NOTE:22 This causes slowdown when CFG_getMenuTransitions is set to false because animationdirection turns > 0 somewhere but is never set back to 0 and so this code runs on every action, will fix later
 			if(animationdirection != ANIM_NONE || (lastScreen==SCREEN_GAMELIST && currentScreen == SCREEN_GAMESWITCHER)) {
-				if(tmpOldScreen) SDL_FreeSurface(tmpOldScreen);
-				tmpOldScreen = GFX_captureRendererToSurface();
-				SDL_SetSurfaceBlendMode(tmpOldScreen,SDL_BLENDMODE_BLEND);
+				tmpOldScreen.reset(GFX_captureRendererToSurface());
+				SDL_SetSurfaceBlendMode(tmpOldScreen.get(),SDL_BLENDMODE_BLEND);
 			}
 
 			// clear only background layer on start
@@ -2352,12 +2348,11 @@ int main (int argc, char *argv[]) {
 
 						char icon_path[MAX_PATH];
 						core::format(icon_path, SDCARD_PATH "/.system/res/%s@%ix.png", item->name, FIXED_SCALE);
-						SDL_Surface* bmp = IMG_Load(icon_path);
+						core::SurfacePtr bmp{IMG_Load(icon_path)};
 						if(bmp) {
-							SDL_Surface* converted = SDL_ConvertSurfaceFormat(bmp, screen->format->format, 0);
+							SDL_Surface* converted = SDL_ConvertSurfaceFormat(bmp.get(), screen->format->format, 0);
 							if (converted) {
-								SDL_FreeSurface(bmp);
-								bmp = converted;
+								bmp.reset(converted);
 							}
 						}
 						if(bmp) {
@@ -2367,7 +2362,7 @@ int main (int argc, char *argv[]) {
 							SDL_Rect destRect = { ox+x, oy+y, 0, 0 };  // width/height not required
 							//SDL_BlitSurface(bmp, NULL, screen, &destRect);
 
-							GFX_blitSurfaceColor(bmp, NULL, screen, &destRect, icon_color);
+							GFX_blitSurfaceColor(bmp.get(), NULL, screen, &destRect, icon_color);
 						}
 
 						int w, h;
@@ -2434,7 +2429,7 @@ int main (int argc, char *argv[]) {
 				GFX_clearLayers(LAYER_ALL);
 				GFX_clear(screen);
 				GFX_flipHidden();
-				GFX_animateSurfaceOpacity(tmpOldScreen,0,0,screen->w,screen->h,255,0,CFG_getMenuTransitions() ? 150:20,LAYER_BACKGROUND);
+				GFX_animateSurfaceOpacity(tmpOldScreen.get(),0,0,screen->w,screen->h,255,0,CFG_getMenuTransitions() ? 150:20,LAYER_BACKGROUND);
 			}
 			else if(currentScreen == SCREEN_GAMESWITCHER) {
 				GFX_clearLayers(LAYER_ALL);
@@ -2453,18 +2448,16 @@ int main (int argc, char *argv[]) {
 						int text_width = GFX_truncateText(GFX_getFonts()->large, selectedEntry->name, display_name, max_width, SCALE1(BUTTON_PADDING*2));
 						max_width = MIN(max_width, text_width);
 
-						SDL_Surface* text;
 						SDL_Color textColor = uintToColour(THEME_COLOR6_255);
 						SDL_LockMutex(fontMutex);
-						text = TTF_RenderUTF8_Blended(GFX_getFonts()->large, display_name, textColor);
+						core::SurfacePtr text{TTF_RenderUTF8_Blended(GFX_getFonts()->large, display_name, textColor)};
 						SDL_UnlockMutex(fontMutex);
 						const int text_offset_y = (SCALE1(PILL_SIZE) - text->h + 1) >> 1;
 						SDL_Rect _pill_rect = { SCALE1(PADDING), SCALE1(PADDING), max_width, SCALE1(PILL_SIZE) };
 						GFX_blitPillLight(ASSET_WHITE_PILL, screen, &_pill_rect);
 						SDL_Rect _text_src = { 0, 0, max_width-SCALE1(BUTTON_PADDING*2), text->h };
 						SDL_Rect _text_dst = { SCALE1(PADDING+BUTTON_PADDING), SCALE1(PADDING) + text_offset_y };
-						SDL_BlitSurface(text, &_text_src, screen, &_text_dst);
-						SDL_FreeSurface(text);
+						SDL_BlitSurface(text.get(), &_text_src, screen, &_text_dst);
 					}
 
 					BTN_HINTS(0, screen, 0, "B","BACK", NULL);
@@ -2475,11 +2468,10 @@ int main (int argc, char *argv[]) {
 					if(has_preview) {
 						// lotta memory churn here
 
-						SDL_Surface* bmp = IMG_Load(preview_path);
-						SDL_Surface* raw_preview = SDL_ConvertSurfaceFormat(bmp, screen->format->format, 0);
+						core::SurfacePtr bmp{IMG_Load(preview_path)};
+						SDL_Surface* raw_preview = SDL_ConvertSurfaceFormat(bmp.get(), screen->format->format, 0);
 						if (raw_preview) {
-							SDL_FreeSurface(bmp);
-							bmp = raw_preview;
+							bmp.reset(raw_preview);
 						}
 						if(bmp) {
 							int aw = screen->w;
@@ -2503,52 +2495,49 @@ int main (int argc, char *argv[]) {
 							if(lastScreen == SCREEN_GAME) {
 								// need to flip once so streaming_texture1 is updated
 								GFX_flipHidden();
-								GFX_animateSurfaceOpacity(bmp,0,0,screen->w,screen->h,0,255,CFG_getMenuTransitions() ? 150:20,LAYER_ALL);
+								GFX_animateSurfaceOpacity(bmp.get(),0,0,screen->w,screen->h,0,255,CFG_getMenuTransitions() ? 150:20,LAYER_ALL);
 							} else if(lastScreen == SCREEN_GAMELIST) {
 
-								GFX_drawOnLayer(blackBG,0,0,screen->w,screen->h,1.0f,0,LAYER_BACKGROUND);
-								GFX_drawOnLayer(bmp,ax,ay,aw, ah,1.0f,0,LAYER_BACKGROUND);
+								GFX_drawOnLayer(blackBG.get(),0,0,screen->w,screen->h,1.0f,0,LAYER_BACKGROUND);
+								GFX_drawOnLayer(bmp.get(),ax,ay,aw, ah,1.0f,0,LAYER_BACKGROUND);
 								GFX_flipHidden();
-								SDL_Surface *tmpNewScreen = GFX_captureRendererToSurface();
+								core::SurfacePtr tmpNewScreen{GFX_captureRendererToSurface()};
 								GFX_clearLayers(LAYER_ALL);
 								folderbgchanged=1;
-								GFX_drawOnLayer(tmpOldScreen,0,0,screen->w, screen->h,1.0f,0,LAYER_ALL);
-								GFX_animateSurface(tmpNewScreen,0,0-screen->h,0,0,screen->w,screen->h,CFG_getMenuTransitions() ? 100:20,255,255,LAYER_BACKGROUND);
-								SDL_FreeSurface(tmpNewScreen);
+								GFX_drawOnLayer(tmpOldScreen.get(),0,0,screen->w, screen->h,1.0f,0,LAYER_ALL);
+								GFX_animateSurface(tmpNewScreen.get(),0,0-screen->h,0,0,screen->w,screen->h,CFG_getMenuTransitions() ? 100:20,255,255,LAYER_BACKGROUND);
 
 							} else if(lastScreen == SCREEN_GAMESWITCHER) {
 								GFX_flipHidden();
-								GFX_drawOnLayer(blackBG,0,0,screen->w, screen->h,1.0f,0,LAYER_BACKGROUND);
+								GFX_drawOnLayer(blackBG.get(),0,0,screen->w, screen->h,1.0f,0,LAYER_BACKGROUND);
 								if(gsanimdir == SLIDE_LEFT)
-									GFX_animateSurface(bmp,ax+screen->w,ay,ax,ay,aw,ah,CFG_getMenuTransitions() ? 80:20,0,255,LAYER_ALL);
+									GFX_animateSurface(bmp.get(),ax+screen->w,ay,ax,ay,aw,ah,CFG_getMenuTransitions() ? 80:20,0,255,LAYER_ALL);
 								else if(gsanimdir == SLIDE_RIGHT)
-									GFX_animateSurface(bmp,ax-screen->w,ay,ax,ay,aw,ah,CFG_getMenuTransitions() ? 80:20,0,255,LAYER_ALL);
+									GFX_animateSurface(bmp.get(),ax-screen->w,ay,ax,ay,aw,ah,CFG_getMenuTransitions() ? 80:20,0,255,LAYER_ALL);
 
-								GFX_drawOnLayer(bmp,ax,ay,aw,ah,1.0f,0,LAYER_BACKGROUND);
+								GFX_drawOnLayer(bmp.get(),ax,ay,aw,ah,1.0f,0,LAYER_BACKGROUND);
 							} else if(lastScreen == SCREEN_QUICKMENU) {
 								GFX_flipHidden();
-								GFX_drawOnLayer(blackBG,0,0,screen->w, screen->h,1.0f,0,LAYER_BACKGROUND);
-								GFX_drawOnLayer(bmp,ax,ay,aw,ah,1.0f,0,LAYER_BACKGROUND);
+								GFX_drawOnLayer(blackBG.get(),0,0,screen->w, screen->h,1.0f,0,LAYER_BACKGROUND);
+								GFX_drawOnLayer(bmp.get(),ax,ay,aw,ah,1.0f,0,LAYER_BACKGROUND);
 							}
-							SDL_FreeSurface(bmp);  // Free after rendering
 						}
 					}
 					else {
 						SDL_Rect preview_rect = {ox,oy,screen->w,screen->h};
-						SDL_Surface * tmpsur = SDL_CreateRGBSurfaceWithFormat(0,screen->w,screen->h,screen->format->BitsPerPixel,screen->format->format);
-						SDL_FillRect(tmpsur, &preview_rect, CFG_getColor(COLOR_BACKGROUND));
+						core::SurfacePtr tmpsur{SDL_CreateRGBSurfaceWithFormat(0,screen->w,screen->h,screen->format->BitsPerPixel,screen->format->format)};
+						SDL_FillRect(tmpsur.get(), &preview_rect, CFG_getColor(COLOR_BACKGROUND));
 						if(lastScreen == SCREEN_GAME) {
-							GFX_animateSurfaceOpacity(tmpsur,0,0,screen->w,screen->h,255,0,CFG_getMenuTransitions() ? 150:20,LAYER_BACKGROUND);
+							GFX_animateSurfaceOpacity(tmpsur.get(),0,0,screen->w,screen->h,255,0,CFG_getMenuTransitions() ? 150:20,LAYER_BACKGROUND);
 						} else if(lastScreen == SCREEN_GAMELIST) {
-							GFX_animateSurface(tmpsur,0,0-screen->h,0,0,screen->w,screen->h,CFG_getMenuTransitions() ? 100:20,255,255,LAYER_ALL);
+							GFX_animateSurface(tmpsur.get(),0,0-screen->h,0,0,screen->w,screen->h,CFG_getMenuTransitions() ? 100:20,255,255,LAYER_ALL);
 						} else if(lastScreen == SCREEN_GAMESWITCHER) {
 							GFX_flipHidden();
 							if(gsanimdir == SLIDE_LEFT)
-								GFX_animateSurface(tmpsur,0+screen->w,0,0,0,screen->w,screen->h,CFG_getMenuTransitions() ? 80:20,0,255,LAYER_ALL);
+								GFX_animateSurface(tmpsur.get(),0+screen->w,0,0,0,screen->w,screen->h,CFG_getMenuTransitions() ? 80:20,0,255,LAYER_ALL);
 							else if(gsanimdir == SLIDE_RIGHT)
-								GFX_animateSurface(tmpsur,0-screen->w,0,0,0,screen->w,screen->h,CFG_getMenuTransitions() ? 80:20,0,255,LAYER_ALL);
+								GFX_animateSurface(tmpsur.get(),0-screen->w,0,0,0,screen->w,screen->h,CFG_getMenuTransitions() ? 80:20,0,255,LAYER_ALL);
 						}
-						SDL_FreeSurface(tmpsur);
 						GFX_blitMessage(GFX_getFonts()->large, "No Preview", screen, &preview_rect);
 					}
 					Entry_free(selectedEntry);
@@ -2562,8 +2551,7 @@ int main (int argc, char *argv[]) {
 
 				GFX_flipHidden();
 
-				if(switcherSur) SDL_FreeSurface(switcherSur);
-				switcherSur = GFX_captureRendererToSurface();
+				switcherSur.reset(GFX_captureRendererToSurface());
 				lastScreen = SCREEN_GAMESWITCHER;
 			}
 			else { // if currentscreen == SCREEN_GAMELIST
@@ -2709,8 +2697,8 @@ int main (int argc, char *argv[]) {
 						}
 
 						SDL_LockMutex(fontMutex);
-						SDL_Surface* text = TTF_RenderUTF8_Blended(GFX_getFonts()->large, entry_name, text_color);
-						SDL_Surface* text_unique = TTF_RenderUTF8_Blended(GFX_getFonts()->large, display_name, COLOR_DARK_TEXT);
+						core::SurfacePtr text{TTF_RenderUTF8_Blended(GFX_getFonts()->large, entry_name, text_color)};
+						core::SurfacePtr text_unique{TTF_RenderUTF8_Blended(GFX_getFonts()->large, display_name, COLOR_DARK_TEXT)};
 						SDL_UnlockMutex(fontMutex);
 						// TODO: Use actual font metrics to center, this only works in simple cases
 						const int text_offset_y = (SCALE1(PILL_SIZE) - text->h + 1) >> 1;
@@ -2745,11 +2733,9 @@ int main (int argc, char *argv[]) {
 						SDL_Rect dest_rect = { SCALE1(BUTTON_MARGIN + BUTTON_PADDING), SCALE1(PADDING + (j * PILL_SIZE)) + text_offset_y };
 
 						if(list_show_entry_names) {
-							SDL_BlitSurface(text_unique, &text_rect, screen, &dest_rect);
-							SDL_BlitSurface(text, &text_rect, screen, &dest_rect);
+							SDL_BlitSurface(text_unique.get(), &text_rect, screen, &dest_rect);
+							SDL_BlitSurface(text.get(), &text_rect, screen, &dest_rect);
 						}
-						SDL_FreeSurface(text_unique); // Free after use
-						SDL_FreeSurface(text); // Free after use
 					}
 					if(lastScreen==SCREEN_GAMESWITCHER) {
 						if(switcherSur) {
@@ -2758,12 +2744,12 @@ int main (int argc, char *argv[]) {
 							folderbgchanged=1;
 
 							GFX_flipHidden();
-							GFX_animateSurface(switcherSur,0,0,0,0-screen->h,screen->w,screen->h,CFG_getMenuTransitions() ? 100:20,255,255,LAYER_BACKGROUND);
+							GFX_animateSurface(switcherSur.get(),0,0,0,0-screen->h,screen->w,screen->h,CFG_getMenuTransitions() ? 100:20,255,255,LAYER_BACKGROUND);
 							animationdirection = ANIM_NONE;
 						}
 					}
 					if(lastScreen==SCREEN_OFF) {
-						GFX_animateSurfaceOpacity(blackBG,0,0,screen->w,screen->h,255,0,CFG_getMenuTransitions() ? 200:20,LAYER_THUMBNAIL);
+						GFX_animateSurfaceOpacity(blackBG.get(),0,0,screen->w,screen->h,255,0,CFG_getMenuTransitions() ? 200:20,LAYER_THUMBNAIL);
 					}
 
 					previous_row = selected_row;
@@ -2800,19 +2786,18 @@ int main (int argc, char *argv[]) {
 						SDL_UnlockMutex(animMutex);
 					}
 					GFX_flipHidden();
-					SDL_Surface *tmpNewScreen = GFX_captureRendererToSurface();
-					SDL_SetSurfaceBlendMode(tmpNewScreen,SDL_BLENDMODE_BLEND);
+					core::SurfacePtr tmpNewScreen{GFX_captureRendererToSurface()};
+					SDL_SetSurfaceBlendMode(tmpNewScreen.get(),SDL_BLENDMODE_BLEND);
 					GFX_clearLayers(LAYER_SCROLLTEXT); // baked into tmpNewScreen; must clear or it floats above the animation
 					GFX_clearLayers(LAYER_THUMBNAIL);
 					{
 						int _duration = (CFG_getMenuTransitions() == TRANSITION_COMFY)
 							? TRANSITION_COMFY_DURATION
 							: TRANSITION_SNAPPY_DURATION;
-						if(animationdirection == SLIDE_LEFT) GFX_animateAndFadeSurface(tmpOldScreen,0,0,-250,0,FIXED_WIDTH,FIXED_HEIGHT,_duration,tmpNewScreen,FIXED_WIDTH,0,0,0,FIXED_WIDTH,FIXED_HEIGHT,255,255,LAYER_THUMBNAIL,TRANSITION_CURVE,TRANSITION_CURVE,TRANSITION_INTENSITY);
-						if(animationdirection == SLIDE_RIGHT) GFX_animateAndFadeSurface(tmpNewScreen,-250,0,0,0,FIXED_WIDTH,FIXED_HEIGHT,_duration,tmpOldScreen,0,0,FIXED_WIDTH,0,FIXED_WIDTH,FIXED_HEIGHT,255,255,LAYER_THUMBNAIL,TRANSITION_CURVE,TRANSITION_CURVE,TRANSITION_INTENSITY);
+						if(animationdirection == SLIDE_LEFT) GFX_animateAndFadeSurface(tmpOldScreen.get(),0,0,-250,0,FIXED_WIDTH,FIXED_HEIGHT,_duration,tmpNewScreen.get(),FIXED_WIDTH,0,0,0,FIXED_WIDTH,FIXED_HEIGHT,255,255,LAYER_THUMBNAIL,TRANSITION_CURVE,TRANSITION_CURVE,TRANSITION_INTENSITY);
+						if(animationdirection == SLIDE_RIGHT) GFX_animateAndFadeSurface(tmpNewScreen.get(),-250,0,0,0,FIXED_WIDTH,FIXED_HEIGHT,_duration,tmpOldScreen.get(),0,0,FIXED_WIDTH,0,FIXED_WIDTH,FIXED_HEIGHT,255,255,LAYER_THUMBNAIL,TRANSITION_CURVE,TRANSITION_CURVE,TRANSITION_INTENSITY);
 					}
 					GFX_clearLayers(LAYER_THUMBNAIL);
-					SDL_FreeSurface(tmpNewScreen);
 				}
 				// animation done
 				animationdirection = ANIM_NONE;
@@ -3021,7 +3006,6 @@ int main (int argc, char *argv[]) {
 	GFX_quit(); // Cleanup video subsystem first to stop GPU threads
 
 	// Now safe to free surfaces after GPU threads are stopped
-	if(blackBG)	SDL_FreeSurface(blackBG);
 	if (folderbgbmp) SDL_FreeSurface(folderbgbmp);
 	if (thumbbmp) SDL_FreeSurface(thumbbmp);
 
