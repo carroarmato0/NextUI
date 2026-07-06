@@ -8,6 +8,11 @@
 int prefixMatch(char* pre, const char* str);
 int suffixMatch(char* suf,const char* str);
 int exactMatch(const char* str1, const char* str2);
+// True for every device in the "Brick" family (original Brick + Brick Pro).
+// They share the 1024x768 screen, brightness handling, 4-light LED layout and
+// display-cal preset, so all the code that used to test exactMatch("brick",...)
+// must treat both the same. Add future Brick variants here in one place.
+int isBrickModel(const char* device);
 int containsString(char* haystack, char* needle);
 int hide(char* file_name);
 

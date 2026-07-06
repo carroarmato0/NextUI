@@ -57,15 +57,38 @@ static const DeviceDescriptor TG5040_SMART_PRO = {
 	.gpu_usage_path = NULL,
 	.rumble_gpio_path = TG5040_RUMBLE_GPIO,
 };
+// TrimUI Brick Pro: physically a Brick (same 1024x768 screen, LED layout and
+// button map) with the Smart Pro's dual analog thumbsticks added at the front.
+// The sticks are powered in launch.sh (the Left/Right pad GPIOs) and surface
+// through SDL as generic joystick axes, so no field here differs from the Brick
+// yet -- this named descriptor is the seam for any Brick-Pro-only tuning that a
+// real unit turns out to need. UNVERIFIED: geometry and joystick codes are
+// inherited from the Brick on the assumption the shared chassis matches; confirm
+// against actual hardware.
+static const DeviceDescriptor TG5040_BRICK_PRO = {
+	.scale = 3, .width = 1024, .height = 768,
+	.main_row_count = 7, .quick_switcher_count = 3, .padding = 5,
+	.joy_l3 = 9, .joy_r3 = 10, .joy_plus = 14, .joy_minus = 13,
+	.cpu_speed_path = TG5040_CPU_SPEED_PATH,
+	.gpu_temp_path = TG5040_GPU_TEMP_PATH,
+	.gpu_speed_fixed = 660,
+	.gpu_freq_path = NULL,
+	.gpu_usage_path = NULL,
+	.rumble_gpio_path = TG5040_RUMBLE_GPIO,
+};
 // Default to Smart Pro so the geometry/button macros are valid even before
 // init runs; resolveDeviceModel() refines it once DEVICE is known.
 const DeviceDescriptor* deviceModel = &TG5040_SMART_PRO;
 
 // Single source of truth for which model we're on. Sets both is_brick (kept for
-// the handful of code paths that still branch on it) and the active descriptor.
+// the handful of code paths that still branch on it -- Brick Pro is in the Brick
+// family, see isBrickModel) and the active descriptor.
 static void resolveDeviceModel(void) {
-	is_brick = exactMatch("brick", getenv("DEVICE"));
-	deviceModel = is_brick ? &TG5040_BRICK : &TG5040_SMART_PRO;
+	const char* device = getenv("DEVICE");
+	is_brick = isBrickModel(device);
+	if (exactMatch("brickpro", device))    deviceModel = &TG5040_BRICK_PRO;
+	else if (exactMatch("brick", device))  deviceModel = &TG5040_BRICK;
+	else                                   deviceModel = &TG5040_SMART_PRO;
 }
 
 void PLAT_initPlatform(void) {

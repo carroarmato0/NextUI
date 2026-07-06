@@ -245,7 +245,8 @@ namespace {
             Brick,
             SmartPro,
             SmartProS,
-            Flip
+            Flip,
+            BrickPro // Brick screen + Smart Pro analog sticks; appended to keep values stable
         };
 
         enum Platform {
@@ -261,6 +262,10 @@ namespace {
                 if(exactMatch("brick", device)) {
                     m_vendor = Trimui;
                     m_model = Brick;
+                    m_platform = tg5040;
+                } else if(exactMatch("brickpro", device)) {
+                    m_vendor = Trimui;
+                    m_model = BrickPro;
                     m_platform = tg5040;
                 } else if(exactMatch("smartpro", device)) {
                     m_vendor = Trimui;
@@ -307,7 +312,8 @@ namespace {
         }
 
         bool hasAnalogSticks() const {
-            return m_model == SmartPro || m_model == SmartProS;
+            // Brick Pro adds Smart Pro-style front thumbsticks to the Brick.
+            return m_model == SmartPro || m_model == SmartProS || m_model == BrickPro;
         }
 
         bool hasWifi() const {
@@ -521,7 +527,7 @@ int main(int argc, char *argv[])
         if(deviceInfo.hasDisplayCal())
         {
             const DisplayCalDefaults defaultDisplayCal = DisplayCal_getDefaultSettings(
-                deviceInfo.getModel() == DeviceInfo::Brick ? DISPLAYCAL_PRESET_BRICK : 
+                (deviceInfo.getModel() == DeviceInfo::Brick || deviceInfo.getModel() == DeviceInfo::BrickPro) ? DISPLAYCAL_PRESET_BRICK :
                 deviceInfo.getModel() == DeviceInfo::SmartPro ? DISPLAYCAL_PRESET_SMARTPRO : DISPLAYCAL_PRESET_DEFAULT);
             displayItems.push_back(
                 new MenuItem{ListItemType::Generic, "White point correction", "Corrects the display white point to better match the \nsRGB standard, at the expense of some peak brightness.", {false, true}, on_off, []() -> std::any

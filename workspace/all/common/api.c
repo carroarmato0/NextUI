@@ -4364,7 +4364,7 @@ void LEDS_updateLeds(bool indicator_only)
 		
 	int lightsize = 3;
 	char *device = getenv("DEVICE");
-	int is_brick = exactMatch("brick", device);
+	int is_brick = isBrickModel(device);
 	if (is_brick)
 		lightsize = 4;
 	if(!lights)

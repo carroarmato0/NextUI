@@ -303,6 +303,12 @@ int exactMatch(char* str1, char* str2) {
 	if (len1!=strlen(str2)) return 0;
 	return (strncmp(str1,str2,len1)==0);
 }
+// Brick family = original Brick + Brick Pro; they share this .so's brick display
+// preset and brick audio quirks. libmsettings is a standalone .so with its own
+// exactMatch, so it carries its own copy (mirrors utils.c:isBrickModel).
+static int isBrickModel(char* device) {
+	return exactMatch("brick", device) || exactMatch("brickpro", device);
+}
 
 int peekVersion(const char *filename) {
 	int version = 0;
@@ -330,7 +336,7 @@ static void applyDisplayCalDefaultsForDevice(Settings *target) {
 
 void InitSettings(void) {	
 	char* device = getenv("DEVICE");
-	is_brick = exactMatch("brick", device);
+	is_brick = isBrickModel(device);
 	is_smartpro = exactMatch("smartpro", device);
 	
 	sprintf(SettingsPath, "%s/msettings.bin", getenv("USERDATA_PATH"));

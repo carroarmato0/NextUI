@@ -13,6 +13,9 @@ export PATH=/usr/trimui/bin:$PATH
 TRIMUI_MODEL=`strings /usr/trimui/bin/MainUI | grep ^Trimui`
 if [ "$TRIMUI_MODEL" = "Trimui Brick" ]; then
 	DEVICE="brick"
+elif [ "$TRIMUI_MODEL" = "Trimui Brick Pro" ]; then
+	# UNVERIFIED model string; confirm on hardware.
+	DEVICE="brickpro"
 fi
 
 # only show splash if either UPDATE_PATH or pakz files exist
@@ -35,7 +38,8 @@ fi
 
 if [ "$SHOW_SPLASH" = "yes" ] ; then
 	cd $(dirname "$0")/$PLATFORM
-	if [ "$DEVICE" = "brick" ]; then
+	# Brick family (Brick + Brick Pro) shares the 1024x768 screen -> taller logo.
+	if [ "$DEVICE" = "brick" ] || [ "$DEVICE" = "brickpro" ]; then
 		./show2.elf --mode=daemon --image="$LOGO_PATH" --text="Installing..." --logoheight=144 --fontsize=32 --progress=-1 &
 	else
 		./show2.elf --mode=daemon --image="$LOGO_PATH" --text="Installing..." --logoheight=128 --progress=-1 &
