@@ -27,12 +27,12 @@ INCDIR = -I. -I./libretro-common/include/ -I../common/ -I../../$(PLATFORM)/platf
 # C++ files compile as C++; everything links through g++ so the two can mix
 # as modules are migrated to C++ incrementally.
 CSOURCE = $(TARGET).c \
-         ma_config.c \
+         \
          ../common/scaler.c ../common/utils.c ../common/config.c ../common/api.c \
          ../common/notification.c ../../$(PLATFORM)/platform/platform.c
 CXXSOURCE = ma_audio.cpp ma_input.cpp ma_runframe.cpp ma_cheats.cpp ma_core.cpp \
          ma_rewind.cpp ma_saves.cpp ma_game.cpp ma_environment.cpp \
-         ma_options.cpp ma_video.cpp ma_menu.cpp ma_frontend_opts.cpp
+         ma_options.cpp ma_video.cpp ma_menu.cpp ma_frontend_opts.cpp ma_config.cpp
 
 # RA support
 ifneq (,$(filter $(PLATFORM),tg5040 tg5050 my355 desktop))

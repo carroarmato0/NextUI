@@ -4,9 +4,13 @@
 #include <math.h>
 #include <dirent.h>
 
+// Project C headers declare C-linkage symbols defined in the still-C translation
+// units; include them as extern "C" so this C++ TU links the unmangled names.
+extern "C" {
 #include "ma_internal.h"
 #include "ma_options.h"
 #include "ma_config.h"
+}
 
 static ButtonMapping button_label_mapping[] = { // used to lookup the retro_id and local btn_id from button name
 	{"NONE",	-1,								BTN_ID_NONE},
@@ -226,7 +230,7 @@ char** list_files_in_folder(const char* folderPath, int* fileCount, const char* 
     *fileCount = 0;
 
 	if(defaultElement) {
-		fileList = malloc(sizeof(char* ) * 2);
+		fileList = (decltype(fileList))malloc(sizeof(char* ) * 2);
 		fileList[0] = strdup(defaultElement);
 		fileList[1] = NULL;
 		(*fileCount)++;
@@ -251,7 +255,7 @@ char** list_files_in_folder(const char* folderPath, int* fileCount, const char* 
                 }
             }
 
-            char** temp = realloc(fileList, sizeof(char*) * (*fileCount + 1)); 
+            char** temp = (decltype(temp))realloc(fileList, sizeof(char*) * (*fileCount + 1)); 
             if (!temp) {
                 perror("realloc");
                 for (int i = 0; i < *fileCount; ++i) {
@@ -281,7 +285,7 @@ char** list_files_in_folder(const char* folderPath, int* fileCount, const char* 
     }
 
 	// NUll terminate the list
-	char** temp = realloc(fileList, sizeof(char*) * (*fileCount + 1));
+	char** temp = (decltype(temp))realloc(fileList, sizeof(char*) * (*fileCount + 1));
 	if (!temp) {
 		perror("realloc");
 		for (int i = 0; i < *fileCount; ++i) {
@@ -718,7 +722,7 @@ void readShadersPreset(int i) {
 
 void loadShaderSettings(int i) {
 	int menucount = 0;
-	config.shaderpragmas[i].options = calloc(32 + 1, sizeof(Option));
+	config.shaderpragmas[i].options = (decltype(config.shaderpragmas[i].options))calloc(32 + 1, sizeof(Option));
 	ShaderParam *params = PLAT_getShaderPragmas(i);
 	if(params == NULL) return;
 	for (int j = 0; j < 32; j++) {
@@ -738,11 +742,11 @@ void loadShaderSettings(int i) {
 		config.shaderpragmas[i].options[menucount].default_value = params[j].def;
 		
 		int steps = (int)((params[j].max - params[j].min) / params[j].step) + 1;
-		config.shaderpragmas[i].options[menucount].values = malloc(sizeof(char *) * (steps + 1));
-		config.shaderpragmas[i].options[menucount].labels = malloc(sizeof(char *) * (steps + 1));
+		config.shaderpragmas[i].options[menucount].values = (decltype(config.shaderpragmas[i].options[menucount].values))malloc(sizeof(char *) * (steps + 1));
+		config.shaderpragmas[i].options[menucount].labels = (decltype(config.shaderpragmas[i].options[menucount].labels))malloc(sizeof(char *) * (steps + 1));
 		for (int s = 0; s < steps; s++) {
 			float val = params[j].min + s * params[j].step;
-			char *str = malloc(16);
+			char *str = (decltype(str))malloc(16);
 			snprintf(str, 16, "%.2f", val);
 			config.shaderpragmas[i].options[menucount].values[s] = str;
 			config.shaderpragmas[i].options[menucount].labels[s] = str;
@@ -1208,23 +1212,27 @@ ButtonMapping default_button_mapping[] = { // used if pak.cfg doesn't exist or d
 
 ButtonMapping core_button_mapping[RETRO_BUTTON_COUNT+1] = {0};
 
+// Positional in BTN_ID enum order (0..15); C++ rejects the sparse/out-of-order
+// [BTN_ID_*]= array designators this used ("non-trivial designated initializers").
+// Order below matches the enum exactly, so indexing device_button_names[BTN_ID_X]
+// still yields the same string.
 static const char* device_button_names[LOCAL_BUTTON_COUNT] = {
-	[BTN_ID_DPAD_UP]	= "UP",
-	[BTN_ID_DPAD_DOWN]	= "DOWN",
-	[BTN_ID_DPAD_LEFT]	= "LEFT",
-	[BTN_ID_DPAD_RIGHT]	= "RIGHT",
-	[BTN_ID_SELECT]		= "SELECT",
-	[BTN_ID_START]		= "START",
-	[BTN_ID_Y]			= "Y",
-	[BTN_ID_X]			= "X",
-	[BTN_ID_B]			= "B",
-	[BTN_ID_A]			= "A",
-	[BTN_ID_L1]			= "L1",
-	[BTN_ID_R1]			= "R1",
-	[BTN_ID_L2]			= "L2",
-	[BTN_ID_R2]			= "R2",
-	[BTN_ID_L3]			= "L3",
-	[BTN_ID_R3]			= "R3",
+	"UP",     // BTN_ID_DPAD_UP    (0)
+	"DOWN",   // BTN_ID_DPAD_DOWN  (1)
+	"LEFT",   // BTN_ID_DPAD_LEFT  (2)
+	"RIGHT",  // BTN_ID_DPAD_RIGHT (3)
+	"A",      // BTN_ID_A          (4)
+	"B",      // BTN_ID_B          (5)
+	"X",      // BTN_ID_X          (6)
+	"Y",      // BTN_ID_Y          (7)
+	"START",  // BTN_ID_START      (8)
+	"SELECT", // BTN_ID_SELECT     (9)
+	"L1",     // BTN_ID_L1         (10)
+	"R1",     // BTN_ID_R1         (11)
+	"L2",     // BTN_ID_L2         (12)
+	"R2",     // BTN_ID_R2         (13)
+	"L3",     // BTN_ID_L3         (14)
+	"R3",     // BTN_ID_R3         (15)
 };
 
 
@@ -1689,7 +1697,7 @@ struct Config config = {
 				.values = shupscale_labels,
 				.labels = shupscale_labels,
 			},
-			{NULL}
+			[SH_NONE] = {NULL}
 		},
 	},
 	.shaderpragmas = {{
@@ -1720,7 +1728,7 @@ struct Config config = {
 		[SHORTCUT_TOGGLE_TURBO_R]		= {"Toggle Turbo R",	-1, BTN_ID_NONE, 0},
 		[SHORTCUT_TOGGLE_TURBO_R2]		= {"Toggle Turbo R2",	-1, BTN_ID_NONE, 0},
 		// -----
-		{NULL}
+		[SHORTCUT_COUNT] = {NULL}
 	},
 };
 
