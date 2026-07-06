@@ -1,13 +1,22 @@
 #include <string.h>
 #include <math.h>
 
+// Project C headers declare C-linkage symbols defined in the still-C translation
+// units; include them as extern "C" so this C++ unit links against the unmangled
+// names. (<arm_neon.h> further down is self-guarded and stays where it is.)
+extern "C" {
 #include "ma_internal.h"
 #include "scaler.h"
 #include "ma_video.h"
+}
 
 
-static const char* bitmap_font[] = {
-	['0'] = 
+// A sparse char->glyph table. Was a C99 designated array (`['0'] = ...`); g++ 8.3
+// rejects sparse/non-trivial array designators in C++, so it's a {char, rows} pair
+// table with a linear lookup (see bitmap_glyph) — the debug HUD is not hot.
+struct BitmapGlyph { unsigned char ch; const char* rows; };
+static const BitmapGlyph bitmap_font[] = {
+	{ '0',
 		" 111 "
 		"1   1"
 		"1   1"
@@ -16,8 +25,8 @@ static const char* bitmap_font[] = {
 		"11  1"
 		"1   1"
 		"1   1"
-		" 111 ",
-	['1'] =
+		" 111 " },
+	{ '1',
 		"   1 "
 		" 111 "
 		"   1 "
@@ -26,8 +35,8 @@ static const char* bitmap_font[] = {
 		"   1 "
 		"   1 "
 		"   1 "
-		"   1 ",
-	['2'] =
+		"   1 " },
+	{ '2',
 		" 111 "
 		"1   1"
 		"    1"
@@ -36,8 +45,8 @@ static const char* bitmap_font[] = {
 		" 1   "
 		"1    "
 		"1    "
-		"11111",
-	['3'] =
+		"11111" },
+	{ '3',
 		" 111 "
 		"1   1"
 		"    1"
@@ -46,8 +55,8 @@ static const char* bitmap_font[] = {
 		"    1"
 		"    1"
 		"1   1"
-		" 111 ",
-	['4'] =
+		" 111 " },
+	{ '4',
 		"1   1"
 		"1   1"
 		"1   1"
@@ -56,8 +65,8 @@ static const char* bitmap_font[] = {
 		"1   1"
 		"11111"
 		"    1"
-		"    1",
-	['5'] =
+		"    1" },
+	{ '5',
 		"11111"
 		"1    "
 		"1    "
@@ -66,8 +75,8 @@ static const char* bitmap_font[] = {
 		"    1"
 		"    1"
 		"1   1"
-		" 111 ",
-	['6'] =
+		" 111 " },
+	{ '6',
 		" 111 "
 		"1    "
 		"1    "
@@ -76,8 +85,8 @@ static const char* bitmap_font[] = {
 		"1   1"
 		"1   1"
 		"1   1"
-		" 111 ",
-	['7'] =
+		" 111 " },
+	{ '7',
 		"11111"
 		"    1"
 		"    1"
@@ -86,8 +95,8 @@ static const char* bitmap_font[] = {
 		"  1  "
 		"  1  "
 		"  1  "
-		"  1  ",
-	['8'] =
+		"  1  " },
+	{ '8',
 		" 111 "
 		"1   1"
 		"1   1"
@@ -96,8 +105,8 @@ static const char* bitmap_font[] = {
 		"1   1"
 		"1   1"
 		"1   1"
-		" 111 ",
-	['9'] =
+		" 111 " },
+	{ '9',
 		" 111 "
 		"1   1"
 		"1   1"
@@ -106,8 +115,8 @@ static const char* bitmap_font[] = {
 		" 1111"
 		"    1"
 		"    1"
-		" 111 ",
-	['.'] = 
+		" 111 " },
+	{ '.',
 		"     "
 		"     "
 		"     "
@@ -116,8 +125,8 @@ static const char* bitmap_font[] = {
 		"     "
 		"     "
 		" 11  "
-		" 11  ",
-	[','] = 
+		" 11  " },
+	{ ',',
 		"     "
 		"     "
 		"     "
@@ -126,8 +135,8 @@ static const char* bitmap_font[] = {
 		"     "
 		"  1  "
 		"  1  "
-		" 1   ",
-	[' '] = 
+		" 1   " },
+	{ ' ',
 		"     "
 		"     "
 		"     "
@@ -136,8 +145,8 @@ static const char* bitmap_font[] = {
 		"     "
 		"     "
 		"     "
-		"     ",
-	['('] = 
+		"     " },
+	{ '(',
 		"   1 "
 		"  1  "
 		" 1   "
@@ -146,8 +155,8 @@ static const char* bitmap_font[] = {
 		" 1   "
 		" 1   "
 		"  1  "
-		"   1 ",
-	[')'] = 
+		"   1 " },
+	{ ')',
 		" 1   "
 		"  1  "
 		"   1 "
@@ -156,8 +165,8 @@ static const char* bitmap_font[] = {
 		"   1 "
 		"   1 "
 		"  1  "
-		" 1   ",
-	['/'] = 
+		" 1   " },
+	{ '/',
 		"   1 "
 		"   1 "
 		"   1 "
@@ -166,8 +175,8 @@ static const char* bitmap_font[] = {
 		"  1  "
 		" 1   "
 		" 1   "
-		" 1   ",
-	['x'] = 
+		" 1   " },
+	{ 'x',
 		"     "
 		"     "
 		"1   1"
@@ -176,8 +185,8 @@ static const char* bitmap_font[] = {
 		"  1  "
 		" 1 1 "
 		"1   1"
-		"1   1",
-	['%'] = 
+		"1   1" },
+	{ '%',
 		" 1   "
 		"1 1  "
 		"1 1 1"
@@ -186,8 +195,8 @@ static const char* bitmap_font[] = {
 		" 1 1 "
 		"1 1 1"
 		"  1 1"
-		"   1 ",
-	['-'] =
+		"   1 " },
+	{ '-',
 		"     "
 		"     "
 		"     "
@@ -196,8 +205,8 @@ static const char* bitmap_font[] = {
 		"     "
 		"     "
 		"     "
-		"     ",
-	['c'] = 
+		"     " },
+	{ 'c',
         "     "
         "     "
         " 111 "
@@ -206,8 +215,8 @@ static const char* bitmap_font[] = {
         "1    "
         "1    "
         "1   1"
-        " 111 ",
-	['m'] = 
+        " 111 " },
+	{ 'm',
         "     "
         "     "
         "11 11"
@@ -216,8 +225,8 @@ static const char* bitmap_font[] = {
         "1   1"
         "1   1"
         "1   1"
-        "1   1",
-	['z'] =
+        "1   1" },
+	{ 'z',
 		"     "
         "     "
         "     "
@@ -226,8 +235,8 @@ static const char* bitmap_font[] = {
         "  1  "
         " 1   "
         "1    "
-        "11111",
-	['h'] =
+        "11111" },
+	{ 'h',
 		"     "
         "1    "
         "1    "
@@ -236,8 +245,8 @@ static const char* bitmap_font[] = {
         "1   1"
         "1   1"
         "1   1"
-        "1   1",
-	['D'] = 
+        "1   1" },
+	{ 'D',
 		"1111 "
 		"1   1"
 		"1   1"
@@ -246,8 +255,8 @@ static const char* bitmap_font[] = {
 		"1   1"
 		"1   1"
 		"1   1"
-		"1111 ",
-	['J'] = 
+		"1111 " },
+	{ 'J',
 		"  111"
 		"    1"
 		"    1"
@@ -256,8 +265,8 @@ static const char* bitmap_font[] = {
 		"1   1"
 		"1   1"
 		"1   1"
-		" 111 ",
-	['A'] = 
+		" 111 " },
+	{ 'A',
 		"  1  "
 		" 1 1 "
 		"1   1"
@@ -266,8 +275,8 @@ static const char* bitmap_font[] = {
 		"1   1"
 		"1   1"
 		"1   1"
-		"1   1",
-	['M'] = 
+		"1   1" },
+	{ 'M',
 		"1   1"
 		"11 11"
 		"1 1 1"
@@ -276,8 +285,8 @@ static const char* bitmap_font[] = {
 		"1   1"
 		"1   1"
 		"1   1"
-		"1   1",
-	[':'] = 
+		"1   1" },
+	{ ':',
 		"     "
 		"     "
 		"  1  "
@@ -286,8 +295,8 @@ static const char* bitmap_font[] = {
 		"     "
 		"  1  "
 		"     "
-		"     ",
-	['B'] = 
+		"     " },
+	{ 'B',
 		"1111 "
 		"1   1"
 		"1   1"
@@ -296,8 +305,8 @@ static const char* bitmap_font[] = {
 		"1   1"
 		"1   1"
 		"1   1"
-		"1111 ",
-	['C'] = 
+		"1111 " },
+	{ 'C',
 		" 111 "
 		"1   1"
 		"1    "
@@ -306,8 +315,8 @@ static const char* bitmap_font[] = {
 		"1    "
 		"1    "
 		"1   1"
-		" 111 ",
-	['N'] = 
+		" 111 " },
+	{ 'N',
 		"1   1"
 		"1   1"
 		"11  1"
@@ -316,8 +325,8 @@ static const char* bitmap_font[] = {
 		"1   1"
 		"1  11"
 		"1   1"
-		"1   1",
-	['H'] = 
+		"1   1" },
+	{ 'H',
 		"1   1"
 		"1   1"
 		"1   1"
@@ -326,8 +335,14 @@ static const char* bitmap_font[] = {
 		"1   1"
 		"1   1"
 		"1   1"
-		"1   1",
+		"1   1" },
 };
+
+static const char* bitmap_glyph(unsigned char ch) {
+	for (unsigned i = 0; i < sizeof(bitmap_font) / sizeof(bitmap_font[0]); i++)
+		if (bitmap_font[i].ch == ch) return bitmap_font[i].rows;
+	return NULL;
+}
 
 void drawRect(int x, int y, int w, int h, uint32_t c, uint32_t *data, int stride) {
 	for (int _x = x; _x < x + w; _x++) {
@@ -378,8 +393,8 @@ static void blitBitmapText(char* text, int ox, int oy, uint32_t* data, int strid
 		// uint32_t* row = data + y * stride;
 		int current_x = 0;
 		for (int i = 0; i < len; i++) {
-			const char* c = bitmap_font[(unsigned char)text[i]];
-			if (!c) c = bitmap_font[' '];
+			const char* c = bitmap_glyph((unsigned char)text[i]);
+			if (!c) c = bitmap_glyph(' ');
 			for (int x = 0; x < DEBUG_CHAR_WIDTH; x++) {
 				if (current_x >= w) break;
 
@@ -633,7 +648,7 @@ void selectScaler(int src_w, int src_h, int src_p) {
 
 	renderer.scale = scale;
 	renderer.aspect = (scaling==SCALE_ASPECT_SCREEN) ? aspect: (scaling==SCALE_NATIVE||scaling==SCALE_CROPPED)?0:(scaling==SCALE_FULLSCREEN?-1:core.aspect_ratio);
-	renderer.blit = GFX_getScaler(&renderer);
+	renderer.blit = (decltype(renderer.blit))GFX_getScaler(&renderer);
 }
 static void screen_flip(SDL_Surface* screen) {
 	

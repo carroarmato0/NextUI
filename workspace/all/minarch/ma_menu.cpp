@@ -7,6 +7,10 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <rcheevos/rc_client.h>
+
+// Project C headers declare C-linkage symbols defined in the still-C translation
+// units; include them as extern "C" so this C++ TU links the unmangled names.
+extern "C" {
 #include <msettings.h>
 #include "defines.h"
 #include "api.h"
@@ -22,6 +26,19 @@
 #include "ma_video.h"
 #include "ma_frontend_opts.h"
 #include "ma_menu.h"
+}
+
+// g++ 8.3 rejects taking the address of an SDL_Rect compound literal in C++
+// ("taking address of temporary"), the scratch-rect idiom this file used
+// throughout. RectArg wraps an SDL_Rect in a class temporary whose lifetime
+// spans the enclosing call and implicitly converts to SDL_Rect*, so a former
+// address-of-compound-literal becomes RectArg{ SDL_Rect{ ...fields... } }.
+// Verified correct on the tg5040 g++ 8.3 toolchain at -O3 -Ofast -flto.
+struct RectArg { SDL_Rect r; operator SDL_Rect*() { return &r; } };
+
+// g++ 8.3 silently drops the backing storage of a (char*[]){...} temporary array
+// passed as an argument, so shared button-hint lists get their own real storage.
+static const char* BACK_PAIR[] = { "B", "BACK", NULL };
 
 ///////////////////////////////
 
@@ -50,13 +67,13 @@ void MSG_init(void) {
 	int i = 0;
 	while ((c = chars[i])) {
 		digit = TTF_RenderUTF8_Blended(GFX_getFonts()->tiny, c, COLOR_WHITE);
-		SDL_BlitSurface(digit, NULL, digits, &(SDL_Rect){ (i * SCALE1(DIGIT_WIDTH)) + (SCALE1(DIGIT_WIDTH) - digit->w)/2, (SCALE1(DIGIT_HEIGHT) - digit->h)/2});
+		SDL_BlitSurface(digit, NULL, digits, RectArg{ SDL_Rect{ (i * SCALE1(DIGIT_WIDTH)) + (SCALE1(DIGIT_WIDTH) - digit->w)/2, (SCALE1(DIGIT_HEIGHT) - digit->h)/2} });
 		SDL_FreeSurface(digit);
 		i += 1;
 	}
 }
 static int MSG_blitChar(int n, int x, int y) {
-	if (n!=DIGIT_SPACE) SDL_BlitSurface(digits, &(SDL_Rect){n*SCALE1(DIGIT_WIDTH),0,SCALE2(DIGIT_WIDTH,DIGIT_HEIGHT)}, screen, &(SDL_Rect){x,y});
+	if (n!=DIGIT_SPACE) SDL_BlitSurface(digits, RectArg{ SDL_Rect{n*SCALE1(DIGIT_WIDTH),0,SCALE2(DIGIT_WIDTH,DIGIT_HEIGHT)} }, screen, RectArg{ SDL_Rect{x,y} });
 	return x + SCALE1(DIGIT_WIDTH + DIGIT_TRACKING);
 }
 static int MSG_blitInt(int num, int x, int y) {
@@ -152,18 +169,20 @@ static struct {
 	int preview_exists;
 } menu = {
 	.bitmap = NULL,
+	// Positional, in ITEM_CONT..ITEM_QUIT order (0..4); C++ has no [index]=
+	// array designators. Reordered ahead of the scalar fields below because
+	// C++ requires designated initializers in declaration order.
+	.items = {
+		"Continue",
+		"Save",
+		"Load",
+		"Options",
+		"Quit",
+	},
 	.disc = -1,
 	.total_discs = 0,
 	.save_exists = 0,
 	.preview_exists = 0,
-	
-	.items = {
-		[ITEM_CONT] = "Continue",
-		[ITEM_SAVE] = "Save",
-		[ITEM_LOAD] = "Load",
-		[ITEM_OPTS] = "Options",
-		[ITEM_QUIT] = "Quit",
-	}
 };
 
 void Menu_init(void) {
@@ -405,9 +424,9 @@ static int OptionAchievements_showDetail(MenuList* list, int i) {
 				snprintf(points_str, sizeof(points_str), "%u points", ach->points);
 			}
 			SDL_Surface* points_text = TTF_RenderUTF8_Blended(GFX_getFonts()->tiny, points_str, COLOR_LIGHT_TEXT);
-			SDL_BlitSurface(points_text, NULL, screen, &(SDL_Rect){
+			SDL_BlitSurface(points_text, NULL, screen, RectArg{ SDL_Rect{
 				center_x - points_text->w / 2, content_y
-			});
+			} });
 			content_y += points_text->h + SCALE1(2);
 			SDL_FreeSurface(points_text);
 			
@@ -417,18 +436,18 @@ static int OptionAchievements_showDetail(MenuList* list, int i) {
 				char time_buf[64];
 				strftime(time_buf, sizeof(time_buf), "Unlocked %B %d %Y, %I:%M%p", tm_info);
 				SDL_Surface* time_text = TTF_RenderUTF8_Blended(GFX_getFonts()->tiny, time_buf, COLOR_LIGHT_TEXT);
-				SDL_BlitSurface(time_text, NULL, screen, &(SDL_Rect){
+				SDL_BlitSurface(time_text, NULL, screen, RectArg{ SDL_Rect{
 					center_x - time_text->w / 2, content_y
-				});
+				} });
 				content_y += time_text->h + SCALE1(2);
 				SDL_FreeSurface(time_text);
 			} else if (ach->measured_progress[0]) {
 				char progress_buf[64];
 				snprintf(progress_buf, sizeof(progress_buf), "Progress: %s", ach->measured_progress);
 				SDL_Surface* progress_text = TTF_RenderUTF8_Blended(GFX_getFonts()->tiny, progress_buf, COLOR_LIGHT_TEXT);
-				SDL_BlitSurface(progress_text, NULL, screen, &(SDL_Rect){
+				SDL_BlitSurface(progress_text, NULL, screen, RectArg{ SDL_Rect{
 					center_x - progress_text->w / 2, content_y
-				});
+				} });
 				content_y += progress_text->h + SCALE1(2);
 				SDL_FreeSurface(progress_text);
 			}
@@ -442,10 +461,10 @@ static int OptionAchievements_showDetail(MenuList* list, int i) {
 				int text_x = icon_x + wifi_size + SCALE1(4);
 				int wifi_y = content_y + (offline_text->h - wifi_size) / 2;
 				GFX_blitAssetColor(ASSET_WIFI_OFF, NULL, screen,
-				                   &(SDL_Rect){icon_x, wifi_y}, 0xCCCCCC);
-				SDL_BlitSurface(offline_text, NULL, screen, &(SDL_Rect){
+				                   RectArg{ SDL_Rect{icon_x, wifi_y} }, 0xCCCCCC);
+				SDL_BlitSurface(offline_text, NULL, screen, RectArg{ SDL_Rect{
 					text_x, content_y
-				});
+				} });
 				content_y += offline_text->h + SCALE1(2);
 				SDL_FreeSurface(offline_text);
 			}
@@ -455,9 +474,9 @@ static int OptionAchievements_showDetail(MenuList* list, int i) {
 				char rarity_buf[32];
 				snprintf(rarity_buf, sizeof(rarity_buf), "%.2f%% unlock rate", ach->rarity);
 				SDL_Surface* rarity_text = TTF_RenderUTF8_Blended(GFX_getFonts()->tiny, rarity_buf, COLOR_LIGHT_TEXT);
-				SDL_BlitSurface(rarity_text, NULL, screen, &(SDL_Rect){
+				SDL_BlitSurface(rarity_text, NULL, screen, RectArg{ SDL_Rect{
 					center_x - rarity_text->w / 2, content_y
-				});
+				} });
 				content_y += rarity_text->h + SCALE1(2);
 				SDL_FreeSurface(rarity_text);
 			}
@@ -479,9 +498,9 @@ static int OptionAchievements_showDetail(MenuList* list, int i) {
 			}
 			if (type_str) {
 				SDL_Surface* type_text = TTF_RenderUTF8_Blended(GFX_getFonts()->tiny, type_str, COLOR_LIGHT_TEXT);
-				SDL_BlitSurface(type_text, NULL, screen, &(SDL_Rect){
+				SDL_BlitSurface(type_text, NULL, screen, RectArg{ SDL_Rect{
 					center_x - type_text->w / 2, content_y
-				});
+				} });
 				content_y += type_text->h + SCALE1(2);
 				SDL_FreeSurface(type_text);
 			}
@@ -497,16 +516,16 @@ static int OptionAchievements_showDetail(MenuList* list, int i) {
 				int icon_y = content_y + SCALE1(4) + (mute_text->h - mute_icon_h) / 2;
 				SDL_Rect mute_src = {0, SCALE1(4), SCALE1(10), SCALE1(12)};
 				GFX_blitAssetColor(ASSET_VOLUME_MUTE, &mute_src, screen,
-				                   &(SDL_Rect){icon_x, icon_y}, 0xCCCCCC);
-				SDL_BlitSurface(mute_text, NULL, screen, &(SDL_Rect){
+				                   RectArg{ SDL_Rect{icon_x, icon_y} }, 0xCCCCCC);
+				SDL_BlitSurface(mute_text, NULL, screen, RectArg{ SDL_Rect{
 					text_x, content_y + SCALE1(4)
-				});
+				} });
 				SDL_FreeSurface(mute_text);
 			}
 			
 			// Button hints - update based on current mute state
-			char* hints[] = {"X", is_muted ? "UNMUTE" : "MUTE", "B", "BACK", NULL};
-			GFX_blitButtonGroup(hints, 0, screen, 1);
+			const char* hints[] = {"X", is_muted ? "UNMUTE" : "MUTE", "B", "BACK", NULL};
+			GFX_blitButtonGroup((char**)hints, 0, screen, 1);
 			GFX_flip(screen);
 			dirty = 0;
 		}
@@ -521,7 +540,7 @@ static int OptionAchievements_showDetail(MenuList* list, int i) {
 
 static int OptionAchievements_openMenu(MenuList* list, int i) {
 	if (!RA_isGameLoaded()) {
-		Menu_message("No achievements found for this game.\n\nThis ROM may need a compatibility patch\nor may not be a supported version.\n\nVisit retroachievements.org to check\nsupported game files.", (char*[]){"B","BACK", NULL});
+		Menu_message("No achievements found for this game.\n\nThis ROM may need a compatibility patch\nor may not be a supported version.\n\nVisit retroachievements.org to check\nsupported game files.", (char**)BACK_PAIR);
 		return MENU_CALLBACK_NOP;
 	}
 
@@ -529,7 +548,7 @@ static int OptionAchievements_openMenu(MenuList* list, int i) {
 	RA_getAchievementSummary(&unlocked, &total);
 
 	if (total == 0) {
-		Menu_message("No achievements available for this game.\n\nThis game may not have achievements yet.\n\nVisit retroachievements.org for details.", (char*[]){"B","BACK", NULL});
+		Menu_message("No achievements available for this game.\n\nThis game may not have achievements yet.\n\nVisit retroachievements.org for details.", (char**)BACK_PAIR);
 		return MENU_CALLBACK_NOP;
 	}
 
@@ -549,7 +568,7 @@ static int OptionAchievements_openMenu(MenuList* list, int i) {
 		RC_CLIENT_ACHIEVEMENT_CATEGORY_CORE, RC_CLIENT_ACHIEVEMENT_LIST_GROUPING_LOCK_STATE);
 
 	if (!ach_menu_list) {
-		Menu_message("Failed to load achievements", (char*[]){"B","BACK", NULL});
+		Menu_message("Failed to load achievements", (char**)BACK_PAIR);
 		return MENU_CALLBACK_NOP;
 	}
 
@@ -564,12 +583,12 @@ static int OptionAchievements_openMenu(MenuList* list, int i) {
 		ach_menu_list = NULL;
 		// This can happen with unsupported game versions where pseudo-achievements
 		// are counted in the summary but not available in the achievement list
-		Menu_message("Achievement list not available", (char*[]){"B","BACK", NULL});
+		Menu_message("Achievement list not available", (char**)BACK_PAIR);
 		return MENU_CALLBACK_NOP;
 	}
 
 	// Create flattened array of all achievement pointers
-	const rc_client_achievement_t** all_achievements = calloc(total_achievements, sizeof(rc_client_achievement_t*));
+	const rc_client_achievement_t** all_achievements = (const rc_client_achievement_t**)calloc(total_achievements, sizeof(rc_client_achievement_t*));
 	int idx = 0;
 	for (uint32_t b = 0; b < ach_menu_list->num_buckets && idx < total_achievements; b++) {
 		const rc_client_achievement_bucket_t* bucket = &ach_menu_list->buckets[b];
@@ -590,7 +609,7 @@ static int OptionAchievements_openMenu(MenuList* list, int i) {
 	int max_visible = (screen->h - ((SCALE1(PADDING + PILL_SIZE) * 2) + SCALE1(BUTTON_SIZE))) / SCALE1(BUTTON_SIZE);
 	
 	// Allocate filtered array once (max size = all achievements)
-	const rc_client_achievement_t** filtered = calloc(total_achievements, sizeof(rc_client_achievement_t*));
+	const rc_client_achievement_t** filtered = (const rc_client_achievement_t**)calloc(total_achievements, sizeof(rc_client_achievement_t*));
 	int filtered_count = 0;
 	
 	// Hide "Unknown Emulator" warning (ID 101000001) when hardcore mode is disabled.
@@ -628,7 +647,7 @@ static int OptionAchievements_openMenu(MenuList* list, int i) {
 				ach_menu_list = NULL;
 				ach_menu_achievements = NULL;
 				ach_menu_count = 0;
-				Menu_message("No achievements found", (char*[]){"B","BACK", NULL});
+				Menu_message("No achievements found", (char**)BACK_PAIR);
 				return MENU_CALLBACK_NOP;
 			}
 
@@ -729,10 +748,10 @@ static int OptionAchievements_openMenu(MenuList* list, int i) {
 			char status_text[64];
 			snprintf(status_text, sizeof(status_text), "%u/%u unlocked", unlocked, total);
 			SDL_Surface* status_surface = TTF_RenderUTF8_Blended(GFX_getFonts()->tiny, status_text, COLOR_WHITE);
-			SDL_BlitSurface(status_surface, NULL, screen, &(SDL_Rect){
+			SDL_BlitSurface(status_surface, NULL, screen, RectArg{ SDL_Rect{
 				(screen->w - status_surface->w) / 2,
 				SCALE1(PADDING) + (SCALE1(PILL_SIZE) - status_surface->h) / 2  // Vertically centered with pill
-			});
+			} });
 			SDL_FreeSurface(status_surface);
 
 			// Calculate vertical centering for list only
@@ -757,17 +776,17 @@ static int OptionAchievements_openMenu(MenuList* list, int i) {
 
 				if (is_selected) {
 					// Gray pill background for full row width (like MENU_FIXED selected)
-					GFX_blitPillLight(ASSET_BUTTON, screen, &(SDL_Rect){
+					GFX_blitPillLight(ASSET_BUTTON, screen, RectArg{ SDL_Rect{
 						ox, oy + SCALE1(row * BUTTON_SIZE), mw, row_height
-					});
+					} });
 				}
 
 				// Draw ">" on the right side (always white)
 				SDL_Surface* arrow = TTF_RenderUTF8_Blended(GFX_getFonts()->small, ">", COLOR_WHITE);
-				SDL_BlitSurface(arrow, NULL, screen, &(SDL_Rect){
+				SDL_BlitSurface(arrow, NULL, screen, RectArg{ SDL_Rect{
 					ox + mw - arrow->w - opt_pad,
 					oy + SCALE1((row * BUTTON_SIZE) + 3)
-				});
+				} });
 				SDL_FreeSurface(arrow);
 
 				if (is_selected) {
@@ -786,9 +805,9 @@ static int OptionAchievements_openMenu(MenuList* list, int i) {
 					}
 					int pill_width = opt_pad + badge_display_size + SCALE1(6) + mute_width + offline_width + title_width + opt_pad;
 					
-					GFX_blitPillDark(ASSET_BUTTON, screen, &(SDL_Rect){
+					GFX_blitPillDark(ASSET_BUTTON, screen, RectArg{ SDL_Rect{
 						ox, oy + SCALE1(row * BUTTON_SIZE), pill_width, row_height
-					});
+					} });
 					text_color = uintToColour(THEME_COLOR5_255);
 
 					// Badge icon inside the white pill
@@ -811,7 +830,7 @@ static int OptionAchievements_openMenu(MenuList* list, int i) {
 						int mute_y = oy + SCALE1(row * BUTTON_SIZE) + (row_height - mute_icon_h) / 2;
 						SDL_Rect mute_src = {0, SCALE1(4), SCALE1(10), SCALE1(12)};
 						GFX_blitAssetColor(ASSET_VOLUME_MUTE, &mute_src, screen,
-						                   &(SDL_Rect){text_x, mute_y}, THEME_COLOR5_255);
+						                   RectArg{ SDL_Rect{text_x, mute_y} }, THEME_COLOR5_255);
 						text_x += mute_width;
 					}
 
@@ -820,16 +839,16 @@ static int OptionAchievements_openMenu(MenuList* list, int i) {
 						int wifi_size = SCALE1(12);
 						int wifi_y = oy + SCALE1(row * BUTTON_SIZE) + (row_height - wifi_size) / 2;
 						GFX_blitAssetColor(ASSET_WIFI_OFF, NULL, screen,
-						                   &(SDL_Rect){text_x, wifi_y}, THEME_COLOR5_255);
+						                   RectArg{ SDL_Rect{text_x, wifi_y} }, THEME_COLOR5_255);
 						text_x += offline_width;
 					}
 
 					// Title text
 					SDL_Surface* title_text = TTF_RenderUTF8_Blended(GFX_getFonts()->small, ach->title, text_color);
-					SDL_BlitSurface(title_text, NULL, screen, &(SDL_Rect){
+					SDL_BlitSurface(title_text, NULL, screen, RectArg{ SDL_Rect{
 						text_x,
 						oy + SCALE1((row * BUTTON_SIZE) + 1)
-					});
+					} });
 					SDL_FreeSurface(title_text);
 				} else {
 					// Unselected row - just badge + title + indicators, no pills
@@ -855,7 +874,7 @@ static int OptionAchievements_openMenu(MenuList* list, int i) {
 						int mute_y = oy + SCALE1(row * BUTTON_SIZE) + (row_height - mute_icon_h) / 2;
 						SDL_Rect mute_src = {0, SCALE1(4), SCALE1(10), SCALE1(12)};
 						GFX_blitAssetColor(ASSET_VOLUME_MUTE, &mute_src, screen,
-						                   &(SDL_Rect){text_x, mute_y}, RGB_WHITE);
+						                   RectArg{ SDL_Rect{text_x, mute_y} }, RGB_WHITE);
 						text_x += SCALE1(10) + SCALE1(4);
 					}
 
@@ -864,24 +883,24 @@ static int OptionAchievements_openMenu(MenuList* list, int i) {
 						int wifi_size = SCALE1(12);
 						int wifi_y = oy + SCALE1(row * BUTTON_SIZE) + (row_height - wifi_size) / 2;
 						GFX_blitAssetColor(ASSET_WIFI_OFF, NULL, screen,
-						                   &(SDL_Rect){text_x, wifi_y}, RGB_WHITE);
+						                   RectArg{ SDL_Rect{text_x, wifi_y} }, RGB_WHITE);
 						text_x += wifi_size + SCALE1(4);
 					}
 
 					// Title text (white for unselected)
 					SDL_Surface* title_text = TTF_RenderUTF8_Blended(GFX_getFonts()->small, ach->title, COLOR_WHITE);
-					SDL_BlitSurface(title_text, NULL, screen, &(SDL_Rect){
+					SDL_BlitSurface(title_text, NULL, screen, RectArg{ SDL_Rect{
 						text_x,
 						oy + SCALE1((row * BUTTON_SIZE) + 1)
-					});
+					} });
 					SDL_FreeSurface(title_text);
 				}
 			}
 
 			// Button hints at bottom with dynamic Y and X button text
 			int selected_muted = (filtered_count > 0) ? RA_isAchievementMuted(filtered[selected]->id) : 0;
-			char* hints[] = {"Y", ach_filter_locked_only ? "SHOW ALL" : "SHOW LOCKED", "X", selected_muted ? "UNMUTE" : "MUTE", NULL};
-			GFX_blitButtonGroup(hints, 0, screen, 1);
+			const char* hints[] = {"Y", ach_filter_locked_only ? "SHOW ALL" : "SHOW LOCKED", "X", selected_muted ? "UNMUTE" : "MUTE", NULL};
+			GFX_blitButtonGroup((char**)hints, 0, screen, 1);
 
 			GFX_flip(screen);
 			dirty = 0;
@@ -901,20 +920,26 @@ static int OptionAchievements_openMenu(MenuList* list, int i) {
 	return MENU_CALLBACK_NOP;
 }
 
+// Hoisted out of options_menu's initializer: C++ has no (MenuItem[]){...}
+// compound-literal array, and this table is mutated at runtime (see
+// Options_updateVisibility), so it needs its own writable static storage.
+// Each element is fully designated in declaration order (name, desc, on_confirm)
+// because C++ forbids mixing positional and designated initializers.
+static MenuItem options_menu_items[] = {
+	{.name="Frontend", .desc="NextUI (" BUILD_DATE " " BUILD_HASH ")", .on_confirm=OptionFrontend_openMenu},
+	{.name="Emulator", .on_confirm=OptionEmulator_openMenu},
+	{.name="Shaders", .on_confirm=OptionShaders_openMenu},
+	{.name="Cheats", .on_confirm=OptionCheats_openMenu},
+	{.name="Controls", .on_confirm=OptionControls_openMenu},
+	{.name="Shortcuts", .on_confirm=OptionShortcuts_openMenu},
+	{.name="Achievements", .on_confirm=OptionAchievements_openMenu},
+	{.name="Save Changes", .on_confirm=OptionSaveChanges_openMenu},
+	{NULL},
+	{NULL},
+};
 static MenuList options_menu = {
 	.type = MENU_LIST,
-	.items = (MenuItem[]) {
-		{"Frontend", "NextUI (" BUILD_DATE " " BUILD_HASH ")",.on_confirm=OptionFrontend_openMenu},
-		{"Emulator",.on_confirm=OptionEmulator_openMenu},
-		{"Shaders",.on_confirm=OptionShaders_openMenu},
-		{"Cheats",.on_confirm=OptionCheats_openMenu},
-		{"Controls",.on_confirm=OptionControls_openMenu},
-		{"Shortcuts",.on_confirm=OptionShortcuts_openMenu},
-		{"Achievements",.on_confirm=OptionAchievements_openMenu},
-		{"Save Changes",.on_confirm=OptionSaveChanges_openMenu},
-		{NULL},
-		{NULL},
-	}
+	.items = options_menu_items,
 };
 
 // Track the index of Save Changes menu item (changes based on RA visibility)
@@ -1202,21 +1227,21 @@ int Menu_options(MenuList* list) {
 					TTF_SizeUTF8(GFX_getFonts()->small, item->name, &w, NULL);
 					w += SCALE1(OPTION_PADDING*2);
 					
-					GFX_blitPillDark(ASSET_BUTTON, screen, &(SDL_Rect){
+					GFX_blitPillDark(ASSET_BUTTON, screen, RectArg{ SDL_Rect{
 						ox,
 						oy+SCALE1(j*BUTTON_SIZE),
 						w,
 						SCALE1(BUTTON_SIZE)
-					});
+					} });
 					text_color = uintToColour(THEME_COLOR5_255);
 					
 					if (item->desc) desc = item->desc;
 				}
 				text = TTF_RenderUTF8_Blended(GFX_getFonts()->small, item->name, text_color);
-				SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){
+				SDL_BlitSurface(text, NULL, screen, RectArg{ SDL_Rect{
 					ox+SCALE1(OPTION_PADDING),
 					oy+SCALE1((j*BUTTON_SIZE)+1)
-				});
+				} });
 				SDL_FreeSurface(text);
 			}
 		}
@@ -1236,21 +1261,21 @@ int Menu_options(MenuList* list) {
 
 				if (j==selected_row) {
 					// gray pill
-					GFX_blitPillLight(ASSET_BUTTON, screen, &(SDL_Rect){
+					GFX_blitPillLight(ASSET_BUTTON, screen, RectArg{ SDL_Rect{
 						ox,
 						oy+SCALE1(j*BUTTON_SIZE),
 						mw,
 						SCALE1(BUTTON_SIZE)
-					});
+					} });
 				}
 				
 				if (item->values == NULL) {
 					// This is a navigation item, used to displayed a specific category
 					text = TTF_RenderUTF8_Blended(GFX_getFonts()->small, ">", COLOR_WHITE); // always white
-					SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){
+					SDL_BlitSurface(text, NULL, screen, RectArg{ SDL_Rect{
 						ox + mw - text->w - SCALE1(OPTION_PADDING),
 						oy+SCALE1((j*BUTTON_SIZE)+3)
-					});
+					} });
 					SDL_FreeSurface(text);
 				}
 				else {
@@ -1261,10 +1286,10 @@ int Menu_options(MenuList* list) {
 							const char *str = item->values[item->value];
 							text = TTF_RenderUTF8_Blended(GFX_getFonts()->tiny, str ? str : "none", str ? COLOR_WHITE : COLOR_GRAY); // always white
 							if (text) {
-								SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){
+								SDL_BlitSurface(text, NULL, screen, RectArg{ SDL_Rect{
 									ox + mw - text->w - SCALE1(OPTION_PADDING),
 									oy+SCALE1((j*BUTTON_SIZE)+3)
-								});
+								} });
 								SDL_FreeSurface(text);
 							}
 						}
@@ -1277,21 +1302,21 @@ int Menu_options(MenuList* list) {
 					int w = 0;
 					TTF_SizeUTF8(GFX_getFonts()->small, item->name, &w, NULL);
 					w += SCALE1(OPTION_PADDING*2);
-					GFX_blitPillDark(ASSET_BUTTON, screen, &(SDL_Rect){
+					GFX_blitPillDark(ASSET_BUTTON, screen, RectArg{ SDL_Rect{
 						ox,
 						oy+SCALE1(j*BUTTON_SIZE),
 						w,
 						SCALE1(BUTTON_SIZE)
-					});
+					} });
 					text_color = uintToColour(THEME_COLOR5_255);
 					
 					if (item->desc) desc = item->desc;
 				}
 				text = TTF_RenderUTF8_Blended(GFX_getFonts()->small, item->name, text_color);
-				SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){
+				SDL_BlitSurface(text, NULL, screen, RectArg{ SDL_Rect{
 					ox+SCALE1(OPTION_PADDING),
 					oy+SCALE1((j*BUTTON_SIZE)+1)
-				});
+				} });
 				SDL_FreeSurface(text);
 			}
 		}
@@ -1337,32 +1362,32 @@ int Menu_options(MenuList* list) {
 
 				if (j==selected_row) {
 					// gray pill
-					GFX_blitPillLight(ASSET_BUTTON, screen, &(SDL_Rect){
+					GFX_blitPillLight(ASSET_BUTTON, screen, RectArg{ SDL_Rect{
 						ox,
 						oy+SCALE1(j*BUTTON_SIZE),
 						mw,
 						SCALE1(BUTTON_SIZE)
-					});
+					} });
 					
 					// white pill
 					int w = 0;
 					TTF_SizeUTF8(GFX_getFonts()->small, item->name, &w, NULL);
 					w += SCALE1(OPTION_PADDING*2);
-					GFX_blitPillDark(ASSET_BUTTON, screen, &(SDL_Rect){
+					GFX_blitPillDark(ASSET_BUTTON, screen, RectArg{ SDL_Rect{
 						ox,
 						oy+SCALE1(j*BUTTON_SIZE),
 						w,
 						SCALE1(BUTTON_SIZE)
-					});
+					} });
 					text_color = uintToColour(THEME_COLOR5_255);
 					
 					if (item->desc) desc = item->desc;
 				}
 				text = TTF_RenderUTF8_Blended(GFX_getFonts()->small, item->name, text_color);
-				SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){
+				SDL_BlitSurface(text, NULL, screen, RectArg{ SDL_Rect{
 					ox+SCALE1(OPTION_PADDING),
 					oy+SCALE1((j*BUTTON_SIZE)+1)
-				});
+				} });
 				SDL_FreeSurface(text);
 				
 				if (await_input && j==selected_row) {
@@ -1373,10 +1398,10 @@ int Menu_options(MenuList* list) {
 					while ( item->values && item->values[count]) count++;
 					if (item->value >= 0 && item->value < count) {
 						text = TTF_RenderUTF8_Blended(GFX_getFonts()->tiny, item->values[item->value], COLOR_WHITE); // always white
-						SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){
+						SDL_BlitSurface(text, NULL, screen, RectArg{ SDL_Rect{
 							ox + mw - text->w - SCALE1(OPTION_PADDING),
 							oy+SCALE1((j*BUTTON_SIZE)+3)
-						});
+						} });
 						SDL_FreeSurface(text);
 					}
 				}
@@ -1388,8 +1413,8 @@ int Menu_options(MenuList* list) {
 			#define SCROLL_HEIGHT 4
 			int ox = (screen->w - SCALE1(SCROLL_WIDTH))/2;
 			int oy = SCALE1((PILL_SIZE - SCROLL_HEIGHT) / 2);
-			if (start>0) GFX_blitAsset(ASSET_SCROLL_UP,   NULL, screen, &(SDL_Rect){ox, SCALE1(PADDING) + oy});
-			if (end<count) GFX_blitAsset(ASSET_SCROLL_DOWN, NULL, screen, &(SDL_Rect){ox, screen->h - SCALE1(PADDING + PILL_SIZE + BUTTON_SIZE) + oy});
+			if (start>0) GFX_blitAsset(ASSET_SCROLL_UP,   NULL, screen, RectArg{ SDL_Rect{ox, SCALE1(PADDING) + oy} });
+			if (end<count) GFX_blitAsset(ASSET_SCROLL_DOWN, NULL, screen, RectArg{ SDL_Rect{ox, screen->h - SCALE1(PADDING + PILL_SIZE + BUTTON_SIZE) + oy} });
 		}
 		
 		if (!desc && list->desc) desc = list->desc;
@@ -1397,11 +1422,11 @@ int Menu_options(MenuList* list) {
 		if (desc) {
 			int w,h;
 			GFX_sizeText(GFX_getFonts()->tiny, desc, SCALE1(12), &w,&h);
-			GFX_blitText(GFX_getFonts()->tiny, desc, SCALE1(12), COLOR_WHITE, screen, &(SDL_Rect){
+			GFX_blitText(GFX_getFonts()->tiny, desc, SCALE1(12), COLOR_WHITE, screen, RectArg{ SDL_Rect{
 				(screen->w - w) / 2,
 				screen->h - SCALE1(PADDING) - h,
 				w,h
-			});
+			} });
 		}
 		
 		GFX_flip(screen);
@@ -1419,8 +1444,8 @@ int Menu_options(MenuList* list) {
 static void Menu_scale(SDL_Surface* src, SDL_Surface* dst) {
 	// LOG_info("Menu_scale src: %ix%i dst: %ix%i\n", src->w,src->h,dst->w,dst->h);
 	
-	uint16_t* s = src->pixels;
-	uint16_t* d = dst->pixels;
+	uint16_t* s = (uint16_t*)src->pixels;
+	uint16_t* d = (uint16_t*)dst->pixels;
 	
 	int sw = src->w;
 	int sh = src->h;
@@ -1632,8 +1657,8 @@ void Menu_screenshot(void) {
 	snprintf(png_path, sizeof(png_path), SDCARD_PATH "/Screenshots/%s.%s.png", rom_name, buffer);
 	int cw, ch;
 	unsigned char* pixels = GFX_GL_screenCapture(&cw, &ch);
-	SaveImageArgs* args = malloc(sizeof(SaveImageArgs));
-	args->pixels = pixels;
+	SaveImageArgs* args = (SaveImageArgs*)malloc(sizeof(SaveImageArgs));
+	args->pixels = (char*)pixels;
 	args->w = cw;
 	args->h = ch;
 	args->path = SDL_strdup(png_path);
@@ -1658,8 +1683,8 @@ void Menu_saveState(void) {
 	if (newScreenshot) {
 		int cw, ch;
 		unsigned char* pixels = GFX_GL_screenCapture(&cw, &ch);
-		SaveImageArgs* args = malloc(sizeof(SaveImageArgs));
-		args->pixels = pixels;
+		SaveImageArgs* args = (SaveImageArgs*)malloc(sizeof(SaveImageArgs));
+		args->pixels = (char*)pixels;
 		args->w = cw;
 		args->h = ch;
 		args->path = SDL_strdup(menu.bmp_path); 
@@ -1914,26 +1939,33 @@ void Menu_loop(void) {
 
 			SDL_Surface* text;
 			text = TTF_RenderUTF8_Blended(GFX_getFonts()->large, display_name, uintToColour(THEME_COLOR6_255));
-			GFX_blitPillLight(ASSET_WHITE_PILL, screen, &(SDL_Rect){
+			GFX_blitPillLight(ASSET_WHITE_PILL, screen, RectArg{ SDL_Rect{
 				SCALE1(PADDING),
 				SCALE1(PADDING),
 				max_width,
 				SCALE1(PILL_SIZE)
-			});
-			SDL_BlitSurface(text, &(SDL_Rect){
+			} });
+			SDL_BlitSurface(text, RectArg{ SDL_Rect{
 				0,
 				0,
 				max_width-SCALE1(BUTTON_PADDING*2),
 				text->h
-			}, screen, &(SDL_Rect){
+			} }, screen, RectArg{ SDL_Rect{
 				SCALE1(PADDING+BUTTON_PADDING),
 				SCALE1(PADDING+4)
-			});
+			} });
 			SDL_FreeSurface(text);
 			
 			if (show_setting && !GetHDMI()) GFX_blitHardwareHints(screen, show_setting);
-			else GFX_blitButtonGroup((char*[]){ BTN_SLEEP==BTN_POWER?"POWER":"MENU","SLEEP", NULL }, 0, screen, 0);
-			GFX_blitButtonGroup((char*[]){ "B","BACK", "A","OKAY", NULL }, 1, screen, 1);
+			else {
+				// Hoisted: g++ 8.3 silently drops (char*[]){...} temp-array storage.
+				const char* sleep_hints[] = { BTN_SLEEP==BTN_POWER?"POWER":"MENU", "SLEEP", NULL };
+				GFX_blitButtonGroup((char**)sleep_hints, 0, screen, 0);
+			}
+			{
+				const char* nav_hints[] = { "B","BACK", "A","OKAY", NULL };
+				GFX_blitButtonGroup((char**)nav_hints, 1, screen, 1);
+			}
 			
 			// list
 			oy = (((DEVICE_HEIGHT / FIXED_SCALE) - PADDING * 2) - (MENU_ITEM_COUNT * PILL_SIZE)) / 2;
@@ -1946,17 +1978,17 @@ void Menu_loop(void) {
 
 					// disc change
 					if (menu.total_discs>1 && i==ITEM_CONT) {				
-						GFX_blitPillDark(ASSET_WHITE_PILL, screen, &(SDL_Rect){
+						GFX_blitPillDark(ASSET_WHITE_PILL, screen, RectArg{ SDL_Rect{
 							SCALE1(PADDING),
 							SCALE1(oy + PADDING),
 							screen->w - SCALE1(PADDING * 2),
 							SCALE1(PILL_SIZE)
-						});
+						} });
 						text = TTF_RenderUTF8_Blended(GFX_getFonts()->large, disc_name, text_color);
-						SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){
+						SDL_BlitSurface(text, NULL, screen, RectArg{ SDL_Rect{
 							screen->w - SCALE1(PADDING + BUTTON_PADDING) - text->w,
 							SCALE1(oy + PADDING + 4)
-						});
+						} });
 						SDL_FreeSurface(text);
 					}
 					
@@ -1964,21 +1996,21 @@ void Menu_loop(void) {
 					ow += SCALE1(BUTTON_PADDING*2);
 					
 					// pill
-					GFX_blitPillDark(ASSET_WHITE_PILL, screen, &(SDL_Rect){
+					GFX_blitPillDark(ASSET_WHITE_PILL, screen, RectArg{ SDL_Rect{
 						SCALE1(PADDING),
 						SCALE1(oy + PADDING + (i * PILL_SIZE)),
 						ow,
 						SCALE1(PILL_SIZE)
-					});
+					} });
 				}
 			
 				
 				// text
 				text = TTF_RenderUTF8_Blended(GFX_getFonts()->large, item, text_color);
-				SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){
+				SDL_BlitSurface(text, NULL, screen, RectArg{ SDL_Rect{
 					SCALE1(PADDING + BUTTON_PADDING),
 					SCALE1(oy + PADDING + (i * PILL_SIZE) + 4)
-				});
+				} });
 				SDL_FreeSurface(text);
 			}
 			
@@ -1995,7 +2027,7 @@ void Menu_loop(void) {
 				oy = (DEVICE_HEIGHT - ph) / 2;
 				
 				// window
-				GFX_blitRect(ASSET_STATE_BG, screen, &(SDL_Rect){ox,oy,pw,ph});
+				GFX_blitRect(ASSET_STATE_BG, screen, RectArg{ SDL_Rect{ox,oy,pw,ph} });
 				ox += SCALE1(WINDOW_RADIUS);
 				oy += SCALE1(WINDOW_RADIUS);
 				
@@ -2011,7 +2043,7 @@ void Menu_loop(void) {
 					SDL_Rect preview_rect = {ox,oy,hw,hh};
 					SDL_FillRect(screen, &preview_rect, SDL_MapRGBA(screen->format,0,0,0,255));
 					SDL_BlitScaled(bmp,NULL,preview,NULL);
-					SDL_BlitSurface(preview, NULL, screen, &(SDL_Rect){ox,oy});
+					SDL_BlitSurface(preview, NULL, screen, RectArg{ SDL_Rect{ox,oy} });
 					SDL_FreeSurface(bmp);
 				}
 				else {
@@ -2025,8 +2057,8 @@ void Menu_loop(void) {
 				ox += (pw-SCALE1(15*MENU_SLOT_COUNT))/2;
 				oy += hh+SCALE1(WINDOW_RADIUS);
 				for (int i=0; i<MENU_SLOT_COUNT; i++) {
-					if (i==menu.slot)GFX_blitAsset(ASSET_PAGE, NULL, screen, &(SDL_Rect){ox+SCALE1(i*15),oy});
-					else GFX_blitAsset(ASSET_DOT, NULL, screen, &(SDL_Rect){ox+SCALE1(i*15)+4,oy+SCALE1(2)});
+					if (i==menu.slot)GFX_blitAsset(ASSET_PAGE, NULL, screen, RectArg{ SDL_Rect{ox+SCALE1(i*15),oy} });
+					else GFX_blitAsset(ASSET_DOT, NULL, screen, RectArg{ SDL_Rect{ox+SCALE1(i*15)+4,oy+SCALE1(2)} });
 				}
 			}
 			GFX_flip(screen);
