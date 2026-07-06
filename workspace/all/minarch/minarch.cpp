@@ -1,7 +1,11 @@
 #include <stdlib.h>
-#include <msettings.h>
-
 #include <SDL2/SDL_image.h>
+
+// Project C headers declare C-linkage symbols shared with the still-C common/
+// units and with the (now C++) sibling ma_* modules; include them as extern "C"
+// so this C++ unit both links against and defines the unmangled names.
+extern "C" {
+#include <msettings.h>
 
 #include "notification.h"
 #include "ra_integration.h"
@@ -19,6 +23,7 @@
 #include "ma_environment.h"
 #include "ma_config.h"
 #include "ma_runframe.h"
+}
 
 ///////////////////////////////////////
 
@@ -70,7 +75,7 @@ GFX_Renderer renderer;
 
 ///////////////////////////////////////
 
-struct Core core;
+struct Core core = {}; // Core has const char[] members; C++ needs explicit zero-init (matches C static init)
 
 
 
@@ -173,7 +178,12 @@ int main(int argc , char* argv[]) {
 
 	Game_open(rom_path); // nes tries to load gamegenie setting before this returns ffs
 	if (!game.is_open) goto finish;
-	
+	// C++ forbids `goto` jumping over an initialized local that is still in scope
+	// at the label. Everything from here to `finish:` lives in its own block so the
+	// jump above lands outside it (has_pending_opt_change, rewind_initialized,
+	// pixels, rawSurface, converted are all scoped inside).
+	{
+
 	simple_mode = exists(SIMPLE_MODE_PATH);
 	
 	// restore options
@@ -210,7 +220,7 @@ int main(int argc , char* argv[]) {
 	// Pass ROM data if available, otherwise just path (for cores that load from file)
 	{
 		char* rom_path_for_ra = game.tmp_path[0] ? game.tmp_path : game.path;
-		RA_loadGame(rom_path_for_ra, game.data, game.size, core.tag);
+		RA_loadGame(rom_path_for_ra, (const uint8_t*)game.data, game.size, core.tag);
 	}
 	
 	State_resume();
@@ -343,6 +353,8 @@ int main(int argc , char* argv[]) {
 
 	Menu_quit();
 	QuitSettings();
+
+	} // end goto-scope block
 
 finish:
     Perf_setCPUMonitorEnabled(0);
