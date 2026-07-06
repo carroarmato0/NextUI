@@ -1,6 +1,7 @@
 #include <dlfcn.h>
 #include <libgen.h>
 #include <string.h>
+#include <exception>
 
 // Project C headers declare C-linkage symbols (core, cheatcodes, the retro_*
 // callbacks, LOG_*, …) defined in the still-C translation units. Include them
@@ -107,13 +108,41 @@ void Core_applyCheats(struct Cheats *cheats)
 	if (!cheats)
 		return;
 
-	if (!core.cheat_reset || !core.cheat_set)
+	if (!core.cheat_reset || !core.cheat_set) {
+		LOG_info("Core_applyCheats: core does not support cheats (retro_cheat_%s unavailable)\n",
+			!core.cheat_set ? "set" : "reset");
 		return;
+	}
 
-	core.cheat_reset();
+	// libretro is a C ABI, but some cores (notably Mednafen/supafaust) throw a C++
+	// exception out of retro_cheat_set when handed a cheat code they can't parse
+	// (e.g. RetroArch Game Genie format "CB01-54DF+..." on a core that expects raw
+	// address/value pairs). An uncaught throw unwinds back across the boundary into
+	// the frontend and hits std::terminate -> the whole emulator aborts. Guard each
+	// core call so a single bad cheat is skipped and logged, and the game survives.
+	try {
+		core.cheat_reset();
+	} catch (const std::exception& e) {
+		LOG_error("Core_applyCheats: cheat_reset threw: %s\n", e.what());
+		return;
+	} catch (...) {
+		LOG_error("Core_applyCheats: cheat_reset threw an unknown exception\n");
+		return;
+	}
+
 	for (int i = 0; i < cheats->count; i++) {
-		if (cheats->cheats[i].enabled) {
+		if (!cheats->cheats[i].enabled)
+			continue;
+		const char* name = cheats->cheats[i].name ? cheats->cheats[i].name : "";
+		const char* code = cheats->cheats[i].code ? cheats->cheats[i].code : "";
+		try {
+			// Most cores parse the code here; some (Mednafen/supafaust) defer to
+			// retro_run() — that deferred throw is caught in run_frame().
 			core.cheat_set(i, cheats->cheats[i].enabled, cheats->cheats[i].code);
+		} catch (const std::exception& e) {
+			LOG_error("Core_applyCheats: core rejected cheat %d \"%s\" (%s): %s\n", i, name, code, e.what());
+		} catch (...) {
+			LOG_error("Core_applyCheats: core rejected cheat %d \"%s\" (%s): unknown exception\n", i, name, code);
 		}
 	}
 }

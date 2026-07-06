@@ -1,4 +1,5 @@
 #include <SDL2/SDL.h>
+#include <exception>
 
 // Project C headers declare C-linkage symbols (core, rewind_st, ff, LOG_*, …)
 // defined in the still-C translation units. Include them as extern "C" so this
@@ -8,7 +9,21 @@ extern "C" {
 #include "ma_rewind.h"
 #include "ma_input.h"
 #include "ma_config.h"
+#include "ma_cheats.h"
 #include "ma_runframe.h"
+#include "notification.h"
+}
+
+// Recover after a core throws mid-emulation (see run_frame). The known trigger is
+// a cheat the core can't parse (Mednafen/supafaust defers Game-Genie parsing to
+// retro_run and throws). Clear the core's cheat state so the next frame is clean,
+// clear the frontend's enabled flags so the cheat menu reflects reality, and tell
+// the user once. Called only from the catch, so it runs at most once per fault.
+static void recoverFromCoreFault(void) {
+	if (core.cheat_reset) { try { core.cheat_reset(); } catch (...) {} }
+	for (size_t i = 0; i < cheatcodes.count; i++) cheatcodes.cheats[i].enabled = 0;
+	cheatcodes.enabled = 0;
+	Notification_push(NOTIFICATION_SETTING, "Cheat rejected by core - cheats disabled", NULL);
 }
 
 void chooseSyncRef(void) {
@@ -52,6 +67,13 @@ static void limitFF(void) {
 }
 
 void run_frame(void) {
+	// Some cores (Mednafen/supafaust) DEFER cheat parsing to the emulation frame:
+	// retro_cheat_set only stores the code, and retro_run() parses it and throws a
+	// C++ exception (Mednafen::MDFN_Error) if it can't (e.g. Game Genie format on a
+	// core that wants raw addresses). Uncaught, that unwinds out of core.run() into
+	// the frontend and hits std::terminate -> abort. Guard the whole frame so a
+	// throwing core is recovered by clearing cheats instead of killing the emulator.
+	try {
 	// if rewind is toggled, fast-forward toggle must stay off; fast-forward hold pauses rewind
 	int do_rewind = (rewind_st.pressed || rewind_st.toggle) && !(rewind_st.toggle && ff.hold_active);
 	if (do_rewind) {
@@ -108,4 +130,11 @@ void run_frame(void) {
 		Rewind_push(0);
 	}
 	limitFF();
+	} catch (const std::exception& e) {
+		LOG_error("run_frame: core threw during emulation: %s — disabling cheats to recover\n", e.what());
+		recoverFromCoreFault();
+	} catch (...) {
+		LOG_error("run_frame: core threw an unknown exception during emulation — disabling cheats to recover\n");
+		recoverFromCoreFault();
+	}
 }

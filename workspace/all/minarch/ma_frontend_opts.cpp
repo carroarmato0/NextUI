@@ -544,13 +544,13 @@ int OptionCheats_openMenu(MenuList* list, int i) {
 		}
 	}
 	else {
-		// update
+		// update: mirror the data model unconditionally. run_frame's cheat-fault
+		// recovery can clear cheat->enabled behind the menu's back, so we must sync
+		// disabled cheats too (the old `if(!enabled) continue` left a stale "on"
+		// checkbox after a cheat was auto-disabled).
 		for (int j = 0; j < cheatcodes.count; j++) {
 			struct Cheat *cheat = &cheatcodes.cheats[j];
 			MenuItem *item = &OptionCheats_menu.items[j];
-			// I guess that makes sense, nobody is changing these but us - what about state restore?
-			if(!cheat->enabled)
-				continue;
 			item->value = cheat->enabled;
 		}
 	}
