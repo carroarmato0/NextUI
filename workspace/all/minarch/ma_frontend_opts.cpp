@@ -1,13 +1,28 @@
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <libgen.h>
+
+// Project C headers declare C-linkage symbols defined in the still-C translation
+// units; include them as extern "C" so this C++ TU links the unmangled names.
+extern "C" {
 #include "ma_internal.h"
 #include "ma_frontend_opts.h"
 #include "ma_cheats.h"
 #include "ra_integration.h"
 #include "notification.h"
+}
 
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <libgen.h>
+// g++ 8.3 rejects taking the address of an SDL_Rect compound literal in C++
+// ("taking address of temporary"). RectArg wraps one in a class temporary whose
+// lifetime spans the enclosing call and converts to SDL_Rect*, so a former
+// RectArg{ SDL_Rect{...} } becomes RectArg{ SDL_Rect{...} }. Verified on tg5040 g++ 8.3.
+struct RectArg { SDL_Rect r; operator SDL_Rect*() { return &r; } };
+
+// g++ 8.3 silently drops the backing storage of a (char*[]){...} temporary array
+// passed as an argument, so shared button-hint lists get real static storage.
+static const char* BACK_PAIR[] = { "B", "BACK", NULL };
+static const char* OKAY_PAIR[] = { "A", "OKAY", NULL };
 
 int Menu_messageWithFont(char* message, char** pairs, TTF_Font* f) {
 	GFX_setMode(MODE_MAIN);
@@ -22,7 +37,7 @@ int Menu_messageWithFont(char* message, char** pairs, TTF_Font* f) {
 
 
 		GFX_clear(screen);
-		GFX_blitMessage(f, message, screen, &(SDL_Rect){SCALE1(PADDING),SCALE1(PADDING),screen->w-SCALE1(2*PADDING),screen->h-SCALE1(PILL_SIZE+PADDING)});
+		GFX_blitMessage(f, message, screen, RectArg{ SDL_Rect{SCALE1(PADDING),SCALE1(PADDING),screen->w-SCALE1(2*PADDING),screen->h-SCALE1(PILL_SIZE+PADDING)} });
 		GFX_blitButtonGroup(pairs, 0, screen, 1);
 		GFX_flip(screen);
 		dirty = 0;
@@ -51,8 +66,8 @@ static int OptionFrontend_optionChanged(MenuList* list, int i) {
 }
 static MenuList OptionFrontend_menu = {
 	.type = MENU_VAR,
-	.on_change = OptionFrontend_optionChanged,
 	.items = NULL,
+	.on_change = OptionFrontend_optionChanged,
 };
 int OptionFrontend_openMenu(MenuList* list, int i) {
 	if (OptionFrontend_menu.items==NULL) {
@@ -63,7 +78,7 @@ int OptionFrontend_openMenu(MenuList* list, int i) {
 				if (!config.frontend.options[i].lock) enabled_count += 1;
 			}
 			config.frontend.enabled_count = enabled_count;
-			config.frontend.enabled_options = calloc(enabled_count+1, sizeof(Option*));
+			config.frontend.enabled_options = (decltype(config.frontend.enabled_options))calloc(enabled_count+1, sizeof(Option*));
 			int j = 0;
 			for (int i=0; i<config.frontend.count; i++) {
 				Option* item = &config.frontend.options[i];
@@ -72,7 +87,7 @@ int OptionFrontend_openMenu(MenuList* list, int i) {
 				j += 1;
 			}
 		}
-		OptionFrontend_menu.items = calloc(config.frontend.enabled_count+1, sizeof(MenuItem));
+		OptionFrontend_menu.items = (decltype(OptionFrontend_menu.items))calloc(config.frontend.enabled_count+1, sizeof(MenuItem));
 		for (int j=0; j<config.frontend.enabled_count; j++) {
 			Option* option = config.frontend.enabled_options[j];
 			MenuItem* item = &OptionFrontend_menu.items[j];
@@ -111,9 +126,9 @@ int OptionEmulator_openMenu(MenuList* list, int index);
 
 static MenuList OptionEmulator_menu = {
 	.type = MENU_FIXED,
+	.items = NULL,
 	.on_confirm = OptionEmulator_optionDetail, // TODO: this needs pagination to be truly useful
 	.on_change = OptionEmulator_optionChanged,
-	.items = NULL,
 };
 
 static int OptionEmulator_optionDetail(MenuList* list, int i) {
@@ -140,7 +155,7 @@ static int OptionEmulator_optionDetail(MenuList* list, int i) {
 	}
 	else {
 		Option* option = OptionList_getOption(&config.core, item->key);
-		if (option->full) return Menu_messageWithFont(option->full, (char*[]){ "B","BACK", NULL }, GFX_getFonts()->medium);
+		if (option->full) return Menu_messageWithFont(option->full, (char**)BACK_PAIR, GFX_getFonts()->medium);
 		else return MENU_CALLBACK_NOP;
 	}
 }
@@ -156,7 +171,7 @@ int OptionEmulator_openMenu(MenuList* list, int index) {
 	}
 
 	int enabled_count = 0;
-	config.core.enabled_options = calloc(config.core.count + 1, sizeof(Option*));
+	config.core.enabled_options = (decltype(config.core.enabled_options))calloc(config.core.count + 1, sizeof(Option*));
 	for (int i=0; i<config.core.count; i++) {
 		Option *item = &config.core.options[i];
 
@@ -175,7 +190,7 @@ int OptionEmulator_openMenu(MenuList* list, int index) {
 		config.core.enabled_options[enabled_count++] = item;
 	}
 	config.core.enabled_count = enabled_count;
-	config.core.enabled_options = realloc(config.core.enabled_options, sizeof(Option *) * (enabled_count + 1));
+	config.core.enabled_options = (decltype(config.core.enabled_options))realloc(config.core.enabled_options, sizeof(Option *) * (enabled_count + 1));
 
 	// If we are at the top level, add the categories
 	int cat_count = 0;
@@ -186,7 +201,7 @@ int OptionEmulator_openMenu(MenuList* list, int index) {
 		}
 	}
 
-	OptionEmulator_menu.items = calloc(cat_count + config.core.enabled_count + 1, sizeof(MenuItem));
+	OptionEmulator_menu.items = (decltype(OptionEmulator_menu.items))calloc(cat_count + config.core.enabled_count + 1, sizeof(MenuItem));
 
 	for (int i=0; i<cat_count; i++) {
 		OptionCategory *cat = &config.core.categories[i];
@@ -216,10 +231,10 @@ int OptionEmulator_openMenu(MenuList* list, int index) {
 	}
 	else {
 		if (list->category) {
-			Menu_message("This category has no options.", (char*[]){ "B","BACK", NULL });
+			Menu_message("This category has no options.", (char**)BACK_PAIR);
 		}
 		else {
-			Menu_message("This core has no options.", (char*[]){ "B","BACK", NULL });
+			Menu_message("This core has no options.", (char**)BACK_PAIR);
 		}
 	}
 
@@ -286,9 +301,9 @@ static MenuList OptionControls_menu = {
 	.desc = "Press A to set and X to clear."
 		"\nSupports single button and MENU+button." // TODO: not supported on nano because POWER doubles as MENU
 	,
+	.items = NULL,
 	.on_confirm = OptionControls_bind,
 	.on_change = OptionControls_unbind,
-	.items = NULL
 };
 
 int OptionControls_openMenu(MenuList* list, int i) {
@@ -297,7 +312,7 @@ int OptionControls_openMenu(MenuList* list, int i) {
 	if (OptionControls_menu.items==NULL) {
 
 		// TODO: where do I free this?
-		OptionControls_menu.items = calloc(RETRO_BUTTON_COUNT+1+has_custom_controllers, sizeof(MenuItem));
+		OptionControls_menu.items = (decltype(OptionControls_menu.items))calloc(RETRO_BUTTON_COUNT+1+has_custom_controllers, sizeof(MenuItem));
 		int k = 0;
 
 		if (has_custom_controllers) {
@@ -387,9 +402,9 @@ static MenuList OptionShortcuts_menu = {
 	.desc = "Press A to set and X to clear."
 		"\nSupports single button and MENU+button." // TODO: not supported on nano because POWER doubles as MENU
 	,
+	.items = NULL,
 	.on_confirm = OptionShortcuts_bind,
 	.on_change = OptionShortcuts_unbind,
-	.items = NULL
 };
 char* getSaveDesc(void) {
 	switch (config.loaded) {
@@ -402,7 +417,7 @@ char* getSaveDesc(void) {
 int OptionShortcuts_openMenu(MenuList* list, int i) {
 	if (OptionShortcuts_menu.items==NULL) {
 		// TODO: where do I free this? I guess I don't :sweat_smile:
-		OptionShortcuts_menu.items = calloc(SHORTCUT_COUNT+1, sizeof(MenuItem));
+		OptionShortcuts_menu.items = (decltype(OptionShortcuts_menu.items))calloc(SHORTCUT_COUNT+1, sizeof(MenuItem));
 		for (int j=0; config.shortcuts[j].name; j++) {
 			ButtonMapping* button = &config.shortcuts[j];
 			MenuItem* item = &OptionShortcuts_menu.items[j];
@@ -447,19 +462,20 @@ static int OptionSaveChanges_onConfirm(MenuList* list, int i) {
 			break;
 		}
 	}
-	Menu_message(message, (char*[]){ "A","OKAY", NULL });
+	Menu_message(message, (char**)OKAY_PAIR);
 	OptionSaveChanges_updateDesc();
 	return MENU_CALLBACK_EXIT;
 }
+static MenuItem OptionSaveChanges_items[] = {
+	{"Save for console"},
+	{"Save for game"},
+	{"Restore defaults"},
+	{NULL},
+};
 static MenuList OptionSaveChanges_menu = {
 	.type = MENU_LIST,
+	.items = OptionSaveChanges_items,
 	.on_confirm = OptionSaveChanges_onConfirm,
-	.items = (MenuItem[]){
-		{"Save for console"},
-		{"Save for game"},
-		{"Restore defaults"},
-		{NULL},
-	}
 };
 int OptionSaveChanges_openMenu(MenuList* list, int i) {
 	OptionSaveChanges_updateDesc();
@@ -494,20 +510,20 @@ static int OptionCheats_optionDetail(MenuList* list, int i) {
 	MenuItem* item = &list->items[i];
 	struct Cheat *cheat = &cheatcodes.cheats[i];
 	if (cheat->info)
-		return Menu_message((char*)cheat->info, (char*[]){ "B","BACK", NULL });
+		return Menu_message((char*)cheat->info, (char**)BACK_PAIR);
 	else return MENU_CALLBACK_NOP;
 }
 
 static MenuList OptionCheats_menu = {
 	.type = MENU_FIXED,
+	.items = NULL,
 	.on_confirm = OptionCheats_optionDetail, // TODO: this needs pagination to be truly useful
 	.on_change = OptionCheats_optionChanged,
-	.items = NULL,
 };
 int OptionCheats_openMenu(MenuList* list, int i) {
 	if (OptionCheats_menu.items == NULL) {
 		// populate
-		OptionCheats_menu.items = calloc(cheatcodes.count + 1, sizeof(MenuItem));
+		OptionCheats_menu.items = (decltype(OptionCheats_menu.items))calloc(cheatcodes.count + 1, sizeof(MenuItem));
 		for (int i = 0; i<cheatcodes.count; i++) {
 			struct Cheat *cheat = &cheatcodes.cheats[i];
 			MenuItem *item = &OptionCheats_menu.items[i];
@@ -518,7 +534,7 @@ int OptionCheats_openMenu(MenuList* list, int i) {
 
 			if(cheat->info) {
 				len = strlen(cheat->info) + 1;
-				item->desc = calloc(len, sizeof(char));
+				item->desc = (decltype(item->desc))calloc(len, sizeof(char));
 				strncpy(item->desc, cheat->info, len);
 				GFX_wrapText(GFX_getFonts()->tiny, item->desc, DEVICE_WIDTH - SCALE1(2*PADDING), 2);
 			}
@@ -588,7 +604,7 @@ int OptionCheats_openMenu(MenuList* list, int i) {
 			}
 		}
 
-		Menu_messageWithFont(cheats_path, (char*[]){ "B","BACK", NULL }, GFX_getFonts()->small);
+		Menu_messageWithFont(cheats_path, (char**)BACK_PAIR, GFX_getFonts()->small);
 	}
 
 	return MENU_CALLBACK_NOP;
@@ -617,9 +633,9 @@ static int OptionPragmas_optionChanged(MenuList* list, int i) {
 
 static MenuList PragmasOptions_menu = {
 	.type = MENU_FIXED,
+	.items = NULL,
 	.on_confirm = NULL,
 	.on_change = OptionPragmas_optionChanged,
-	.items = NULL
 };
 static int OptionPragmas_openMenu(MenuList* list, int i) {
 	int progressCount = 0;
@@ -627,7 +643,7 @@ static int OptionPragmas_openMenu(MenuList* list, int i) {
 	for (int y=0; y < config.shaders.options[SH_NROFSHADERS].value; y++) {
 		totalcount += config.shaderpragmas[y].count;
 	}
-	PragmasOptions_menu.items = calloc(totalcount + 1, sizeof(MenuItem));
+	PragmasOptions_menu.items = (decltype(PragmasOptions_menu.items))calloc(totalcount + 1, sizeof(MenuItem));
 	for (int y=0; y < config.shaders.options[SH_NROFSHADERS].value; y++) {
 		for (int j = 0; j < config.shaderpragmas[y].count; j++) {
 			MenuItem* item = &PragmasOptions_menu.items[progressCount];
@@ -645,7 +661,7 @@ static int OptionPragmas_openMenu(MenuList* list, int i) {
 	if (PragmasOptions_menu.items[0].name) {
 		Menu_options(&PragmasOptions_menu);
 	} else {
-		Menu_message("No extra settings found", (char*[]){"B", "BACK", NULL});
+		Menu_message("No extra settings found", (char**)BACK_PAIR);
 	}
 
 	return MENU_CALLBACK_NOP;
@@ -680,9 +696,9 @@ static int OptionShaders_optionChanged(MenuList* list, int i) {
 
 static MenuList ShaderOptions_menu = {
 	.type = MENU_FIXED,
+	.items = NULL,
 	.on_confirm = NULL,
 	.on_change = OptionShaders_optionChanged,
-	.items = NULL
 };
 
 int OptionShaders_openMenu(MenuList* list, int i) {
@@ -691,11 +707,11 @@ int OptionShaders_openMenu(MenuList* list, int i) {
 
 	// Check if folder read failed or no files found
 	if (!filelist || filecount == 0) {
-		Menu_message("No shaders available\n/Shaders folder or shader files not found", (char*[]){"B", "BACK", NULL});
+		Menu_message("No shaders available\n/Shaders folder or shader files not found", (char**)BACK_PAIR);
 		return MENU_CALLBACK_NOP;
 	}
 
-	ShaderOptions_menu.items = calloc(config.shaders.count + 1, sizeof(MenuItem));
+	ShaderOptions_menu.items = (decltype(ShaderOptions_menu.items))calloc(config.shaders.count + 1, sizeof(MenuItem));
 	for (int i = 0; i < config.shaders.count; i++) {
 		MenuItem* item = &ShaderOptions_menu.items[i];
 		Option* configitem = &config.shaders.options[i];
@@ -720,7 +736,7 @@ int OptionShaders_openMenu(MenuList* list, int i) {
 	if (ShaderOptions_menu.items[0].name) {
 		Menu_options(&ShaderOptions_menu);
 	} else {
-		Menu_message("No shaders available\n/Shaders folder or shader files not found", (char*[]){"B", "BACK", NULL});
+		Menu_message("No shaders available\n/Shaders folder or shader files not found", (char**)BACK_PAIR);
 	}
 
 	return MENU_CALLBACK_NOP;
