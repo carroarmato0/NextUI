@@ -221,10 +221,12 @@ int State_read(void) { // from picoarch
 	// Hoisted above the first `goto error` below: C++ forbids a goto that jumps
 	// over a variable's initialization into its scope, and the error: label is
 	// in scope for these. state_rzfile in particular MUST be NULL before any
-	// goto reaches error: (which reads it). filename/state need no hoist.
+	// goto reaches error: (which reads them). filename/state need no hoist.
 	uint8_t rastate_header[RASTATE_HEADER_SIZE] = {0};
 #ifdef HAS_SRM
 	rzipstream_t *state_rzfile = NULL;
+#else
+	FILE *state_file = NULL;
 #endif
 
 	void *state = calloc(1, state_size);
@@ -273,7 +275,7 @@ error:
 	if (state) free(state);
 	if (state_rzfile) rzipstream_close(state_rzfile);
 #else
-	FILE *state_file = fopen(filename, "r");
+	state_file = fopen(filename, "r");
 	if (!state_file) {
 		if (state_slot!=8) { // st8 is a default state in MiniUI and may not exist, that's okay
 			LOG_error("Error opening state file: %s (%s)\n", filename, strerror(errno));
@@ -327,6 +329,12 @@ int State_write(void) { // from picoarch
 	int was_ff = ff.active;
 	ff.active = 0;
 
+	// Hoisted above the first `goto error` below (see State_read): the error:
+	// label reads state_file, and C++ forbids a goto crossing its initialization.
+#ifndef HAS_SRM
+	FILE *state_file = NULL;
+#endif
+
 	void *state = calloc(1, state_size);
 	if (!state) {
 		LOG_error("Couldn't allocate memory for state\n");
@@ -359,7 +367,7 @@ int State_write(void) { // from picoarch
 error:
 	if (state) free(state);
 #else
-	FILE *state_file = fopen(filename, "w");
+	state_file = fopen(filename, "w");
 	if (!state_file) {
 		LOG_error("Error opening state file: %s (%s)\n", filename, strerror(errno));
 		goto error;
