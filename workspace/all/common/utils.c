@@ -30,11 +30,6 @@ int exactMatch(const char* str1, const char* str2) {
 	if (len1!=strlen(str2)) return 0;
 	return (strncmp(str1,str2,len1)==0);
 }
-int isBrickModel(const char* device) {
-	// Brick and Brick Pro share the Brick chassis/screen/LED layout; both take
-	// the is_brick code paths. Smart Pro (and S) are a different family.
-	return exactMatch("brick", device) || exactMatch("brickpro", device);
-}
 int containsString(char* haystack, char* needle) {
 	return strcasestr(haystack, needle) != NULL;
 }

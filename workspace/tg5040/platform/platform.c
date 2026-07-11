@@ -25,6 +25,7 @@
 #include <dirent.h>
 
 int is_brick = 0;
+int is_brickpro = 0;
 
 // Shared tg5040 hardware node paths -- the same on Brick and Smart Pro. These
 // are exactly the seams a different platform redefines (tg5050 would use
@@ -39,6 +40,7 @@ static const DeviceDescriptor TG5040_BRICK = {
 	.scale = 3, .width = 1024, .height = 768,
 	.main_row_count = 7, .quick_switcher_count = 3, .padding = 5,
 	.joy_l3 = 9, .joy_r3 = 10, .joy_plus = 14, .joy_minus = 13,
+	.joy_l4 = JOY_NA, .joy_r4 = JOY_NA, .joy_menu_alt = JOY_NA,
 	.cpu_speed_path = TG5040_CPU_SPEED_PATH,
 	.gpu_temp_path = TG5040_GPU_TEMP_PATH,
 	.gpu_speed_fixed = 660,
@@ -50,6 +52,7 @@ static const DeviceDescriptor TG5040_SMART_PRO = {
 	.scale = 2, .width = 1280, .height = 720,
 	.main_row_count = 10, .quick_switcher_count = 4, .padding = 10,
 	.joy_l3 = JOY_NA, .joy_r3 = JOY_NA, .joy_plus = 128, .joy_minus = 129,
+	.joy_l4 = JOY_NA, .joy_r4 = JOY_NA, .joy_menu_alt = JOY_NA,
 	.cpu_speed_path = TG5040_CPU_SPEED_PATH,
 	.gpu_temp_path = TG5040_GPU_TEMP_PATH,
 	.gpu_speed_fixed = 660,
@@ -57,18 +60,18 @@ static const DeviceDescriptor TG5040_SMART_PRO = {
 	.gpu_usage_path = NULL,
 	.rumble_gpio_path = TG5040_RUMBLE_GPIO,
 };
-// TrimUI Brick Pro: physically a Brick (same 1024x768 screen, LED layout and
-// button map) with the Smart Pro's dual analog thumbsticks added at the front.
-// The sticks are powered in launch.sh (the Left/Right pad GPIOs) and surface
-// through SDL as generic joystick axes, so no field here differs from the Brick
-// yet -- this named descriptor is the seam for any Brick-Pro-only tuning that a
-// real unit turns out to need. UNVERIFIED: geometry and joystick codes are
-// inherited from the Brick on the assumption the shared chassis matches; confirm
-// against actual hardware.
+// TrimUI Brick Pro: a distinct tg5040 device (is_brickpro) sharing the Brick's
+// 1024x768 screen and menu layout, but adding the Smart Pro's dual analog
+// thumbsticks plus two rear trigger buttons (L4/R4, joy codes 11/12) and an
+// alternate menu button (joy 15). It drives five addressable LED zones (F1, F2,
+// top bar, joysticks, rear triggers) and carries its own brightness curve and
+// display-cal preset (see libmsettings/msettings.c). UNVERIFIED: model string
+// and joystick codes follow upstream #766; confirm against actual hardware.
 static const DeviceDescriptor TG5040_BRICK_PRO = {
 	.scale = 3, .width = 1024, .height = 768,
 	.main_row_count = 7, .quick_switcher_count = 3, .padding = 5,
 	.joy_l3 = 9, .joy_r3 = 10, .joy_plus = 14, .joy_minus = 13,
+	.joy_l4 = 11, .joy_r4 = 12, .joy_menu_alt = 15,
 	.cpu_speed_path = TG5040_CPU_SPEED_PATH,
 	.gpu_temp_path = TG5040_GPU_TEMP_PATH,
 	.gpu_speed_fixed = 660,
@@ -80,15 +83,16 @@ static const DeviceDescriptor TG5040_BRICK_PRO = {
 // init runs; resolveDeviceModel() refines it once DEVICE is known.
 const DeviceDescriptor* deviceModel = &TG5040_SMART_PRO;
 
-// Single source of truth for which model we're on. Sets both is_brick (kept for
-// the handful of code paths that still branch on it -- Brick Pro is in the Brick
-// family, see isBrickModel) and the active descriptor.
+// Single source of truth for which model we're on. Sets is_brick and is_brickpro
+// (Brick Pro is a distinct device, not part of the Brick family) and points
+// deviceModel at the active descriptor.
 static void resolveDeviceModel(void) {
 	const char* device = getenv("DEVICE");
-	is_brick = isBrickModel(device);
-	if (exactMatch("brickpro", device))    deviceModel = &TG5040_BRICK_PRO;
-	else if (exactMatch("brick", device))  deviceModel = &TG5040_BRICK;
-	else                                   deviceModel = &TG5040_SMART_PRO;
+	is_brick = exactMatch("brick", device);
+	is_brickpro = exactMatch("brickpro", device);
+	if (is_brickpro)      deviceModel = &TG5040_BRICK_PRO;
+	else if (is_brick)    deviceModel = &TG5040_BRICK;
+	else                  deviceModel = &TG5040_SMART_PRO;
 }
 
 void PLAT_initPlatform(void) {
@@ -145,7 +149,7 @@ static bool bluetoothConnected = false;
 
 void PLAT_enableBacklight(int enable) {
 	if (enable) {
-		if (is_brick) SetRawBrightness(8);
+		if (is_brick || is_brickpro) SetRawBrightness(8);
 		SetBrightness(GetBrightness());
 	}
 	else {
@@ -211,107 +215,24 @@ char* PLAT_getModel(void) {
 
 void PLAT_initDefaultLeds() {
 	resolveDeviceModel();
-	if(is_brick) {
-	lightsDefault[0] = (LightSettings) {
-		"FN 1 key",
-		"f1",
-		4,
-		1000,
-		100,
-		0xFFFFFF,
-		0xFFFFFF,
-		0,
-		{},
-		1,
-		100,
-		0
-	};
-	lightsDefault[1] = (LightSettings) {
-		"FN 2 key",
-		"f2",
-		4,
-		1000,
-		100,
-		0xFFFFFF,
-		0xFFFFFF,
-		0,
-		{},
-		1,
-		100,
-		0
-	};
-	lightsDefault[2] = (LightSettings) {
-		"Topbar",
-		"m",
-		4,
-		1000,
-		100,
-		0xFFFFFF,
-		0xFFFFFF,
-		0,
-		{},
-		1,
-		100,
-		0
-	};
-	lightsDefault[3] = (LightSettings) {
-		"L/R triggers",
-		"lr",
-		4,
-		1000,
-		100,
-		0xFFFFFF,
-		0xFFFFFF,
-		0,
-		{},
-		1,
-		100,
-		0
-	};
-} else {
-	lightsDefault[0] = (LightSettings) {
-		"Joystick L",
-		"l",
-		4,
-		1000,
-		100,
-		0xFFFFFF,
-		0xFFFFFF,
-		0,
-		{},
-		1,
-		100,
-		0
-	};
-	lightsDefault[1] = (LightSettings) {
-		"Joystick R",
-		"r",
-		4,
-		1000,
-		100,
-		0xFFFFFF,
-		0xFFFFFF,
-		0,
-		{},
-		1,
-		100,
-		0
-	};
-	lightsDefault[2] = (LightSettings) {
-		"Logo",
-		"m",
-		4,
-		1000,
-		100,
-		0xFFFFFF,
-		0xFFFFFF,
-		0,
-		{},
-		1,
-		100,
-		0
-	};
-}
+	if(is_brickpro) {
+		lightsDefault[0] = (LightSettings) {"FN 1 key","f1",4,1000,100,0xFFFFFF,0xFFFFFF,0,{},1,100,0};
+		lightsDefault[1] = (LightSettings) {"FN 2 key","f2",4,1000,100,0xFFFFFF,0xFFFFFF,0,{},1,100,0};
+		lightsDefault[2] = (LightSettings) {"Topbar","m",4,1000,100,0xFFFFFF,0xFFFFFF,0,{},1,100,0};
+		lightsDefault[3] = (LightSettings) {"Joysticks L/R","lr",4,1000,100,0xFFFFFF,0xFFFFFF,0,{},1,100,0};
+		lightsDefault[4] = (LightSettings) {"Triggers L/R","rear",4,1000,100,0xFFFFFF,0xFFFFFF,0,{},1,100,0};
+	}
+	else if(is_brick) {
+		lightsDefault[0] = (LightSettings) {"FN 1 key","f1",4,1000,100,0xFFFFFF,0xFFFFFF,0,{},1,100,0};
+		lightsDefault[1] = (LightSettings) {"FN 2 key","f2",4,1000,100,0xFFFFFF,0xFFFFFF,0,{},1,100,0};
+		lightsDefault[2] = (LightSettings) {"Topbar","m",4,1000,100,0xFFFFFF,0xFFFFFF,0,{},1,100,0};
+		lightsDefault[3] = (LightSettings) {"L/R triggers","lr",4,1000,100,0xFFFFFF,0xFFFFFF,0,{},1,100,0};
+	}
+	else {
+		lightsDefault[0] = (LightSettings) {"Joystick L","l",4,1000,100,0xFFFFFF,0xFFFFFF,0,{},1,100,0};
+		lightsDefault[1] = (LightSettings) {"Joystick R","r",4,1000,100,0xFFFFFF,0xFFFFFF,0,{},1,100,0};
+		lightsDefault[2] = (LightSettings) {"Logo","m",4,1000,100,0xFFFFFF,0xFFFFFF,0,{},1,100,0};
+	}
 }
 void PLAT_initLeds(LightSettings *lights) 
 {
@@ -321,6 +242,9 @@ void PLAT_initLeds(LightSettings *lights)
 	FILE *file;
 	if(is_brick) {
 		file = PLAT_OpenSettings("ledsettings_brick.txt");
+	}
+	else if(is_brickpro) {
+		file = PLAT_OpenSettings("ledsettings_brickpro.txt");
 	}
 	else {
 		file = PLAT_OpenSettings("ledsettings.txt");
@@ -409,14 +333,15 @@ void PLAT_initLeds(LightSettings *lights)
 
 #define LED_PATH1 "/sys/class/led_anim/max_scale"
 #define LED_PATH2 "/sys/class/led_anim/max_scale_lr"
-#define LED_PATH3 "/sys/class/led_anim/max_scale_f1f2" 
+#define LED_PATH3 "/sys/class/led_anim/max_scale_f1f2"
+#define LED_PATH4 "/sys/class/led_anim/max_scale_rear"
 
 void PLAT_setLedInbrightness(LightSettings *led)
 {
     char filepath[256];
     FILE *file;
     // first set brightness
-	if(is_brick) {
+	if(is_brick || is_brickpro) {
 		if (strcmp(led->filename, "m") == 0) {
 			snprintf(filepath, sizeof(filepath), LED_PATH1);
 		} else if (strcmp(led->filename, "f1") == 0) {
@@ -442,7 +367,7 @@ void PLAT_setLedBrightness(LightSettings *led)
     char filepath[256];
     FILE *file;
     // first set brightness
-	if(is_brick) {
+	if(is_brick || is_brickpro) {
 		if (strcmp(led->filename, "m") == 0) {
 			snprintf(filepath, sizeof(filepath), "/sys/class/led_anim/max_scale");
 		} else if (strcmp(led->filename, "f1") == 0) {

@@ -303,12 +303,6 @@ int exactMatch(char* str1, char* str2) {
 	if (len1!=strlen(str2)) return 0;
 	return (strncmp(str1,str2,len1)==0);
 }
-// Brick family = original Brick + Brick Pro; they share this .so's brick display
-// preset and brick audio quirks. libmsettings is a standalone .so with its own
-// exactMatch, so it carries its own copy (mirrors utils.c:isBrickModel).
-static int isBrickModel(char* device) {
-	return exactMatch("brick", device) || exactMatch("brickpro", device);
-}
 
 int peekVersion(const char *filename) {
 	int version = 0;
@@ -321,11 +315,13 @@ int peekVersion(const char *filename) {
 }
 
 static int is_brick = 0;
+static int is_brickpro = 0;
 static int is_smartpro = 0;
 
 static void applyDisplayCalDefaultsForDevice(Settings *target) {
 	DisplayCalDefaults defaults = DisplayCal_getDefaultSettings(
-		  is_brick ? DISPLAYCAL_PRESET_BRICK 
+		  is_brick ? DISPLAYCAL_PRESET_BRICK
+		: is_brickpro ? DISPLAYCAL_PRESET_BRICK
 		: is_smartpro ? DISPLAYCAL_PRESET_SMARTPRO 
 		: DISPLAYCAL_PRESET_DEFAULT);
 	target->displaycal_enabled = defaults.enabled;
@@ -336,7 +332,8 @@ static void applyDisplayCalDefaultsForDevice(Settings *target) {
 
 void InitSettings(void) {	
 	char* device = getenv("DEVICE");
-	is_brick = isBrickModel(device);
+	is_brick = exactMatch("brick", device);
+	is_brickpro = exactMatch("brickpro", device);
 	is_smartpro = exactMatch("smartpro", device);
 	
 	sprintf(SettingsPath, "%s/msettings.bin", getenv("USERDATA_PATH"));
@@ -1058,6 +1055,21 @@ int scaleVolume(int value) {
 int scaleBrightness(int value) {
 	int raw;
 	if (is_brick) {
+		switch (value) {
+			case 0: raw=1; break; 		// 0
+			case 1: raw=8; break; 		// 8
+			case 2: raw=16; break; 		// 8
+			case 3: raw=32; break; 		// 16
+			case 4: raw=48; break;		// 16
+			case 5: raw=72; break;		// 24
+			case 6: raw=96; break;		// 24
+			case 7: raw=128; break;		// 32
+			case 8: raw=160; break;		// 32
+			case 9: raw=192; break;		// 32
+			case 10: raw=255; break;	// 64
+		}
+	}
+	else if (is_brickpro) {
 		switch (value) {
 			case 0: raw=1; break; 		// 0
 			case 1: raw=8; break; 		// 8

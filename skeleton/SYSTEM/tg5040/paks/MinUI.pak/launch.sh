@@ -49,16 +49,13 @@ mkdir -p "$HOOKS_PATH"
 mkdir -p "$SHARED_USERDATA_PATH/.minui"
 
 export TRIMUI_MODEL=`strings /usr/trimui/bin/MainUI | grep ^Trimui`
-case "$TRIMUI_MODEL" in
-	"Trimui Brick")
-		export DEVICE="brick" ;;
-	"Trimui Brick Pro")
-		# UNVERIFIED model string -- confirm on real hardware with:
-		#   strings /usr/trimui/bin/MainUI | grep ^Trimui
-		export DEVICE="brickpro" ;;
-	*)
-		export DEVICE="smartpro" ;;
-esac
+if [ "$TRIMUI_MODEL" = "Trimui Brick" ]; then
+	export DEVICE="brick"
+elif [ "$TRIMUI_MODEL" = "Trimui Brick Pro" ]; then
+	export DEVICE="brickpro"
+else
+	export DEVICE="smartpro"
+fi
 
 export IS_NEXT="yes"
 
@@ -86,9 +83,7 @@ echo 227 > /sys/class/gpio/export
 echo -n out > /sys/class/gpio/gpio227/direction
 echo -n 0 > /sys/class/gpio/gpio227/value
 
-# Left/Right analog thumbstick power (PD14/PD18). Smart Pro and Brick Pro have
-# front thumbsticks; the original Brick does not.
-if [ "$DEVICE" = "smartpro" ] || [ "$DEVICE" = "brickpro" ]; then
+if [ "$TRIMUI_MODEL" = "Trimui Smart Pro" ]; then
 	#Left/Right Pad PD14/PD18
 	echo 110 > /sys/class/gpio/export
 	echo -n out > /sys/class/gpio/gpio110/direction
@@ -112,8 +107,7 @@ export PATH=$SYSTEM_PATH/bin:/usr/trimui/bin:$PATH
 
 # leds_off
 echo 0 > /sys/class/led_anim/max_scale
-# Brick family (Brick + Brick Pro) has the extra LR / F1F2 LED channels.
-if [ "$DEVICE" = "brick" ] || [ "$DEVICE" = "brickpro" ]; then
+if [ "$TRIMUI_MODEL" = "Trimui Brick" ]; then
 	echo 0 > /sys/class/led_anim/max_scale_lr
 	echo 0 > /sys/class/led_anim/max_scale_f1f2
 fi

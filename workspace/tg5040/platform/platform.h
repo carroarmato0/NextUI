@@ -12,6 +12,7 @@
 ///////////////////////////////
 
 extern int is_brick;
+extern int is_brickpro;
 
 #include "device.h"
 
@@ -36,6 +37,8 @@ extern int is_brick;
 #define BUTTON_R2		BUTTON_NA
 #define BUTTON_L3		BUTTON_NA
 #define BUTTON_R3		BUTTON_NA
+#define BUTTON_L4		BUTTON_NA
+#define BUTTON_R4		BUTTON_NA
 
 #define BUTTON_MENU		BUTTON_NA
 #define BUTTON_MENU_ALT	BUTTON_NA
@@ -64,6 +67,8 @@ extern int is_brick;
 #define CODE_R2			CODE_NA
 #define CODE_L3			CODE_NA
 #define CODE_R3			CODE_NA
+#define CODE_L4			CODE_NA
+#define CODE_R4			CODE_NA
 
 #define CODE_MENU		CODE_NA
 #define CODE_POWER		102
@@ -93,8 +98,11 @@ extern int is_brick;
 #define JOY_R2			JOY_NA
 #define JOY_L3			(deviceModel->joy_l3)
 #define JOY_R3			(deviceModel->joy_r3)
+#define JOY_L4			(deviceModel->joy_l4)
+#define JOY_R4			(deviceModel->joy_r4)
 
 #define JOY_MENU		8
+#define JOY_MENU_ALT	(deviceModel->joy_menu_alt)
 #define JOY_POWER		102
 #define JOY_PLUS		(deviceModel->joy_plus)
 #define JOY_MINUS		(deviceModel->joy_minus)
@@ -144,7 +152,7 @@ extern int is_brick;
 // this should be set to the devices native screen refresh rate
 #define SCREEN_FPS 60.235
 
-#define MAX_LIGHTS 4
+#define MAX_LIGHTS 5
 
 ///////////////////////////////
 

@@ -15,6 +15,9 @@ typedef struct DeviceDescriptor {
 	int padding;               // PADDING
 	int joy_l3;                // JOY_L3
 	int joy_r3;                // JOY_R3
+	int joy_l4;                // JOY_L4 (Brick Pro rear triggers)
+	int joy_r4;                // JOY_R4 (Brick Pro rear triggers)
+	int joy_menu_alt;          // JOY_MENU_ALT (Brick Pro)
 	int joy_plus;              // JOY_PLUS
 	int joy_minus;             // JOY_MINUS
 	// sysfs hardware nodes that differ across platforms -- the seams a future
