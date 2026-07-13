@@ -1233,6 +1233,8 @@ static const char* device_button_names[LOCAL_BUTTON_COUNT] = {
 	"R2",     // BTN_ID_R2         (13)
 	"L3",     // BTN_ID_L3         (14)
 	"R3",     // BTN_ID_R3         (15)
+	"L4",     // BTN_ID_L4         (16)
+	"R4",     // BTN_ID_R4         (17)
 };
 
 
@@ -1255,6 +1257,8 @@ char* button_labels[] = {
 	"R2",
 	"L3",
 	"R3",
+	"L4",
+	"R4",
 	"MENU+UP",
 	"MENU+DOWN",
 	"MENU+LEFT",
@@ -1271,6 +1275,8 @@ char* button_labels[] = {
 	"MENU+R2",
 	"MENU+L3",
 	"MENU+R3",
+	"MENU+L4",
+	"MENU+R4",
 	NULL,
 };
 static char* overclock_labels[] = {
