@@ -172,7 +172,15 @@ void Core_load(void) {
 	game_info.data = game.data;
 	game_info.size = game.size;
 	LOG_info("game path: %s (%i)\n", game_info.path, game.size);
-	core.load_game(&game_info);
+	try {
+		core.load_game(&game_info);
+	} catch (const std::exception& e) {
+		LOG_error("Core_load: retro_load_game threw: %s\n", e.what());
+		exit(1);
+	} catch (...) {
+		LOG_error("Core_load: retro_load_game threw an unknown exception\n");
+		exit(1);
+	}
 
 	if (Cheats_load())
 		Core_applyCheats(&cheatcodes);
