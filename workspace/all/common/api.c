@@ -106,7 +106,7 @@ uint32_t THEME_COLOR4;
 uint32_t THEME_COLOR5;
 uint32_t THEME_COLOR6;
 uint32_t THEME_COLOR7;
-static SDL_Color ALT_BUTTON_TEXT_COLOR;
+SDL_Color ALT_BUTTON_TEXT_COLOR;
 
 // move to utils?
 

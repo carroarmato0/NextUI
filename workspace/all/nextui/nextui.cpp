@@ -1156,8 +1156,8 @@ static int runFnAction(int index) {
 
 	// unlike openPak() we save where the user *is*, not the pak itself, so exiting
 	// the pak comes back to the same spot in the list
-	if (top && top->entries->count>0) {
-		Entry* entry = top->entries->items[top->selected];
+	if (top && (int)top->entries.size()>0) {
+		Entry* entry = top->entries[top->selected];
 		saveLast(entry->path);
 	}
 
@@ -2571,6 +2571,7 @@ int main (int argc, char *argv[]) {
 						SDL_Rect preview_rect = {ox,oy,screen->w,screen->h};
 						core::SurfacePtr tmpsur{SDL_CreateRGBSurfaceWithFormat(0,screen->w,screen->h,screen->format->BitsPerPixel,screen->format->format)};
 						SDL_FillRect(tmpsur.get(), &preview_rect, THEME_COLOR7);
+						if(lastScreen == SCREEN_GAME) {
 							GFX_animateSurfaceOpacity(tmpsur.get(),0,0,screen->w,screen->h,255,0,CFG_getMenuTransitions() ? 150:20,LAYER_BACKGROUND);
 						} else if(lastScreen == SCREEN_GAMELIST) {
 							GFX_animateSurface(tmpsur.get(),0,0-screen->h,0,0,screen->w,screen->h,CFG_getMenuTransitions() ? 100:20,255,255,LAYER_ALL);
