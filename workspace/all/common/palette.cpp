@@ -1,13 +1,14 @@
 #include "palette.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstring>
 #include <strings.h>
 #include <dirent.h>
 
 #include "defines.h"
+extern "C" {
 #include "config.h"
+}
 
 static const uint32_t palette_default_colors[PALETTE_COLOR_COUNT] = {
     CFG_DEFAULT_COLOR1, CFG_DEFAULT_COLOR2, CFG_DEFAULT_COLOR3,
@@ -15,7 +16,6 @@ static const uint32_t palette_default_colors[PALETTE_COLOR_COUNT] = {
     CFG_DEFAULT_COLOR7,
 };
 
-// Derive a display name from a filename: strip .txt, replace underscores with spaces.
 static void palette_nameFromFilename(const char *filename, char *out, size_t out_size)
 {
     size_t len = strlen(filename);
@@ -28,7 +28,6 @@ static void palette_nameFromFilename(const char *filename, char *out, size_t out
     out[len] = '\0';
 }
 
-// Parse a single palette file. Returns true on success and a supported version.
 static bool palette_loadFile(const char *path, const char *filename, bool builtin, ColorPalette *out)
 {
     FILE *file = fopen(path, "r");
@@ -76,7 +75,6 @@ static bool palette_loadFile(const char *path, const char *filename, bool builti
     }
     fclose(file);
 
-    // Skip palettes authored for a newer format than we understand.
     if (out->version > PALETTE_VERSION_MAX)
         return false;
 
@@ -116,7 +114,6 @@ int PALETTE_enumerate(ColorPalette *out, int max)
         return 0;
 
     int count = 0;
-    // Built-ins first (read-only), then user/community drop-ins.
     count = palette_scanDir(RES_PATH "/palettes", true, out, max, count);
     count = palette_scanDir(SDCARD_PATH "/Palettes", false, out, max, count);
     return count;
@@ -126,8 +123,5 @@ void PALETTE_apply(const ColorPalette *palette)
 {
     if (!palette)
         return;
-    // CFG_applyPalette sets the 7 colors and the palette name as one atomic step,
-    // so the persisted "current palette" can never point at a color set that
-    // doesn't match it.
     CFG_applyPalette(palette->name, palette->colors);
 }

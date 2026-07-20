@@ -2,8 +2,8 @@
 
 extern "C" {
 #include "config.h"
-#include "palette.h"
 }
+#include "palette.h"
 
 namespace {
 
