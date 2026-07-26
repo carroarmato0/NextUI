@@ -10,16 +10,22 @@
  */
 
 #define RA_LOG_PREFIX "RA_SYNC"
-#include "ra_log.h"
 
+// Project C headers declare C-linkage symbols (LOG_*, config, http, api, the RA
+// helpers, …). Include them as extern "C" so this C++ unit links against the
+// unmangled names — and so this unit's own exports keep C linkage for the
+// still-C platform.c and any C consumers. (Same pattern as ra_integration.cpp.)
+#define RA_UTIL_NEED_SDL
+extern "C" {
+#include "ra_log.h"
 #include "ra_sync.h"
 #include "ra_offline.h"
-#define RA_UTIL_NEED_SDL
 #include "ra_util.h"
 #include "http.h"
 #include "config.h"
 #include "defines.h"
 #include "api.h"
+}
 
 #include <stdio.h>
 #include <stdlib.h>

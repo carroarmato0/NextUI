@@ -1,10 +1,15 @@
 #define RA_LOG_PREFIX "RA_OFFLINE"
-#include "ra_log.h"
 
+// Project C headers declare C-linkage symbols; include them as extern "C" so
+// this C++ unit links against the unmangled names and its own exports keep C
+// linkage for the still-C platform.c. (Same pattern as ra_integration.cpp.)
+extern "C" {
+#include "ra_log.h"
 #include "ra_offline.h"
 #include "ra_util.h"
 #include "defines.h"
 #include "api.h"
+}
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -436,6 +441,12 @@ static bool patch_startsession_with_ledger(char* body, size_t body_len,
 	/* Get pending unlocks from ledger, pre-filtered by game hash */
 	RA_PendingUnlock* pending = NULL;
 	uint32_t pending_count = 0;
+	/* Hoisted above the `goto passthrough` jumps below: C++ forbids a goto that
+	 * crosses a variable's initialization (the label doesn't use these). */
+	char* current_body = body;
+	size_t current_len = body_len;
+	bool body_replaced = false;
+	uint32_t total_injected = 0;
 	if (!RA_Offline_ledgerGetPendingByGameHash(game_hash, &pending, &pending_count))
 		goto passthrough;
 
@@ -448,10 +459,6 @@ static bool patch_startsession_with_ledger(char* body, size_t body_len,
 	 * in both modes, preventing it from re-awarding them via its own
 	 * server call (which would lack &o= and record the wrong timestamp).
 	 */
-	char* current_body = body;
-	size_t current_len = body_len;
-	bool body_replaced = false;
-	uint32_t total_injected = 0;
 
 	/* Pass 1: Inject into "Unlocks" (softcore) */
 	{
@@ -1444,26 +1451,38 @@ void RA_Offline_patchStartsessionCacheWithUnlock(const char* game_hash,
 	/* Read existing cache file */
 	char* body = NULL;
 	size_t body_len = 0;
+	/* Hoisted above the `goto done` jumps below: C++ forbids a goto that crosses
+	 * a variable's initialization (the label only unlocks the mutex). */
+	const char* unlocks_key = "\"Unlocks\"";
+	char* unlocks_pos;
+	char* arr_start;
+	char* arr_end;
+	bool already_in_softcore = false;
+	bool already_in_hardcore = false;
+	const char* hc_key = "\"HardcoreUnlocks\"";
+	char* hc_pos;
+	char* current_body;
+	size_t current_len;
+	bool body_replaced = false;
 	if (!cache_read_file(path, &body, &body_len)) {
 		/* No cached startsession for this game, or corrupt — nothing to patch */
 		goto done;
 	}
 
 	/* Find the "Unlocks" array */
-	const char* unlocks_key = "\"Unlocks\"";
-	char* unlocks_pos = strstr(body, unlocks_key);
+	unlocks_pos = strstr(body, unlocks_key);
 	if (!unlocks_pos) {
 		free(body);
 		goto done;
 	}
 
-	char* arr_start = strchr(unlocks_pos + strlen(unlocks_key), '[');
+	arr_start = strchr(unlocks_pos + strlen(unlocks_key), '[');
 	if (!arr_start) {
 		free(body);
 		goto done;
 	}
 
-	char* arr_end = strchr(arr_start, ']');
+	arr_end = strchr(arr_start, ']');
 	if (!arr_end) {
 		free(body);
 		goto done;
@@ -1472,7 +1491,6 @@ void RA_Offline_patchStartsessionCacheWithUnlock(const char* game_hash,
 	/* Check if this achievement ID is already in the Unlocks array */
 	char id_pattern[32];
 	snprintf(id_pattern, sizeof(id_pattern), "\"ID\":%u", achievement_id);
-	bool already_in_softcore = false;
 	for (char* p = arr_start; p < arr_end; p++) {
 		if (strncmp(p, id_pattern, strlen(id_pattern)) == 0) {
 			already_in_softcore = true;
@@ -1481,9 +1499,7 @@ void RA_Offline_patchStartsessionCacheWithUnlock(const char* game_hash,
 	}
 
 	/* Also check HardcoreUnlocks array */
-	bool already_in_hardcore = false;
-	const char* hc_key = "\"HardcoreUnlocks\"";
-	char* hc_pos = strstr(body, hc_key);
+	hc_pos = strstr(body, hc_key);
 	if (hc_pos) {
 		char* hc_arr_start = strchr(hc_pos + strlen(hc_key), '[');
 		if (hc_arr_start) {
@@ -1519,9 +1535,8 @@ void RA_Offline_patchStartsessionCacheWithUnlock(const char* game_hash,
 	 *  but if we pass NULL as game_hash it accepts all entries). */
 	single.game_hash[0] = '\0';
 
-	char* current_body = body;
-	size_t current_len = body_len;
-	bool body_replaced = false;
+	current_body = body;
+	current_len = body_len;
 
 	/* Inject into "Unlocks" if not already present */
 	if (!already_in_softcore) {

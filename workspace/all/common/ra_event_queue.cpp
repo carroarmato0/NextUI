@@ -18,7 +18,7 @@
  * deps) so declare LOG_note and define the macros we need locally.
  * Values must stay in sync with the LOG_* enum in api.h. */
 enum { LOG_DEBUG = 0, LOG_INFO = 1, LOG_WARN = 2 };
-void LOG_note(int level, const char* fmt, ...);
+extern "C" void LOG_note(int level, const char* fmt, ...); // C symbol defined in api.c
 #define LOG_debug(fmt, ...) LOG_note(LOG_DEBUG, fmt, ##__VA_ARGS__)
 #define LOG_info(fmt, ...) LOG_note(LOG_INFO, fmt, ##__VA_ARGS__)
 #define LOG_warn(fmt, ...) LOG_note(LOG_WARN, fmt, ##__VA_ARGS__)

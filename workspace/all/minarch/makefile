@@ -38,8 +38,8 @@ ifneq (,$(filter $(PLATFORM),tg5040 tg5050 my355 desktop))
 # RA source files (shared common/ helpers stay C; the two minarch-local RA units
 # are C++). ra_integration sits on the rcheevos C callback boundary — kept
 # mechanical, no throwing constructs on that path.
-CSOURCE += ../common/http.c ../common/ra_badges.c ../common/ra_offline.c ../common/ra_sync.c ../common/ra_event_queue.c
-CXXSOURCE += ra_integration.cpp chd_reader.cpp
+CSOURCE += ../common/http.c ../common/ra_badges.c
+CXXSOURCE += ra_integration.cpp chd_reader.cpp ../common/ra_offline.cpp ../common/ra_sync.cpp ../common/ra_event_queue.cpp
 endif
 
 CC  = $(CROSS_COMPILE)gcc
