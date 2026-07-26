@@ -1,14 +1,18 @@
 // heavily modified from the Onion original: https://github.com/OnionUI/Onion/blob/main/src/playActivity/playActivityDB.h
-#include <stdlib.h>
-#include <stdbool.h>
+#include <cstdlib>
 #include <sys/stat.h>
-#include <stdio.h>
-#include <string.h>
+#include <cstdio>
+#include <cstring>
 #include <unistd.h>
 
+#include <sqlite3.h>
+
+// Project C headers declare C-linkage symbols defined in the still-C common/
+// translation units; include as extern "C". gametimedb.h carries its own guard.
+extern "C" {
 #include <defines.h>
 #include <utils.h>
-#include <sqlite3.h>
+}
 
 #include "gametimedb.h"
 
@@ -184,7 +188,7 @@ PlayActivities *play_activity_find_all(void)
         rom->name = strdup((const char *)sqlite3_column_text(stmt, 2));
         if (sqlite3_column_text(stmt, 3) != NULL) {
             rom->file_path = strdup((const char *)sqlite3_column_text(stmt, 3));
-            rom->image_path = malloc(STR_MAX * sizeof(char));
+            rom->image_path = (char *)malloc(STR_MAX * sizeof(char));
             memset(rom->image_path, 0, STR_MAX);
             get_rom_image_path(rom->file_path, rom->image_path);
         }

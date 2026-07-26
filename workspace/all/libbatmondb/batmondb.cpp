@@ -1,14 +1,18 @@
 // heavily modified from the Onion original: https://github.com/OnionUI/Onion/tree/main/src/batmon
-#include <stdlib.h>
-#include <stdbool.h>
+#include <cstdlib>
 #include <sys/stat.h>
-#include <stdio.h>
-#include <string.h>
+#include <cstdio>
+#include <cstring>
 #include <unistd.h>
 
+#include <sqlite3.h>
+
+// Project C headers declare C-linkage symbols defined in the still-C common/
+// translation units; include as extern "C". batmondb.h carries its own guard.
+extern "C" {
 #include <defines.h>
 #include <utils.h>
-#include <sqlite3.h>
+}
 
 #include "batmondb.h"
 
@@ -22,12 +26,12 @@ sqlite3* open_battery_log_db(void)
     if (!db_exists)
         touch(BATTERY_LOG_FILE);
 
-    sqlite3 *bat_log_db = NULL;
+    sqlite3 *bat_log_db = nullptr;
 
     if (sqlite3_open(BATTERY_LOG_FILE, &bat_log_db) != SQLITE_OK) {
         printf("%s\n", sqlite3_errmsg(bat_log_db));
         close_battery_log_db(bat_log_db);
-        return NULL;
+        return nullptr;
     }
 
     if (!db_exists) {
@@ -49,7 +53,7 @@ sqlite3* open_battery_log_db(void)
 void close_battery_log_db(sqlite3* bat_log_db)
 {
     sqlite3_close(bat_log_db);
-    bat_log_db = NULL;
+    bat_log_db = nullptr;
 }
 
 int get_best_session_time(sqlite3* bat_log_db, const char* device)
