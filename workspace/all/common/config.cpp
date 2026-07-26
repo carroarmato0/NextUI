@@ -1,12 +1,17 @@
-#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
 #include <ctype.h>
 #include <unistd.h>
+
+// Project C headers declare C-linkage symbols; include as extern "C" so this
+// C++ unit's own exports keep C linkage for the still-C platform.c and any C
+// consumers. config.h / utils.h carry their own guards.
+extern "C" {
+#include "config.h"
 #include "defines.h"
 #include "utils.h"
+}
 
 NextUISettings settings = {0};
 
@@ -31,7 +36,6 @@ void CFG_defaults(NextUISettings *cfg)
         return;
 
     NextUISettings defaults = {
-        .fontFile = CFG_DEFAULT_FONT_FILE,
         .fontStyle = CFG_DEFAULT_FONT_STYLE,
         .color1_255 = CFG_DEFAULT_COLOR1,
         .color2_255 = CFG_DEFAULT_COLOR2,
@@ -41,10 +45,10 @@ void CFG_defaults(NextUISettings *cfg)
         .color6_255 = CFG_DEFAULT_COLOR6,
         .color7_255 = CFG_DEFAULT_COLOR7,
         .thumbRadius = CFG_DEFAULT_THUMBRADIUS,
+        .gameSwitcherScaling = CFG_DEFAULT_GAMESWITCHERSCALING,
+        .gameSwitcherCurtain = CFG_DEFAULT_GAMESWITCHER_CURTAIN,
         .gameArtWidth = CFG_DEFAULT_GAMEARTWIDTH,
-		.showFolderNamesAtRoot = CFG_DEFAULT_SHOWFOLDERNAMESATROOT,
         .inputPromptStyle = CFG_DEFAULT_INPUT_PROMPT_STYLE,
-        .paletteName = CFG_DEFAULT_PALETTE_NAME,
         .customColors = {CFG_DEFAULT_COLOR1, CFG_DEFAULT_COLOR2, CFG_DEFAULT_COLOR3,
                           CFG_DEFAULT_COLOR4, CFG_DEFAULT_COLOR5, CFG_DEFAULT_COLOR6,
                           CFG_DEFAULT_COLOR7},
@@ -58,10 +62,10 @@ void CFG_defaults(NextUISettings *cfg)
         .showTools = CFG_DEFAULT_SHOWTOOLS,
         .showCollections = CFG_DEFAULT_SHOWCOLLECTIONS,
         .showGameArt = CFG_DEFAULT_SHOWGAMEART,
-        .gameSwitcherScaling = CFG_DEFAULT_GAMESWITCHERSCALING,
-        .defaultView = CFG_DEFAULT_VIEW,
+        .showFolderNamesAtRoot = CFG_DEFAULT_SHOWFOLDERNAMESATROOT,
+        .romsUseFolderBackground = CFG_DEFAULT_ROMSUSEFOLDERBACKGROUND,
         .showQuickSwitcherUi = CFG_DEFAULT_SHOWQUICKWITCHERUI,
-        .gameSwitcherCurtain = CFG_DEFAULT_GAMESWITCHER_CURTAIN,
+        .defaultView = CFG_DEFAULT_VIEW,
 
         .muteLeds = CFG_DEFAULT_MUTELEDS,
 
@@ -72,11 +76,11 @@ void CFG_defaults(NextUISettings *cfg)
         .powerOffProtection = CFG_DEFAULT_POWEROFFPROTECTION,
         .keepAwakeWhenUSB = CFG_DEFAULT_KEEPAWAKEWHENUSB,
 
-        .haptics = CFG_DEFAULT_HAPTICS,
-        .romsUseFolderBackground = CFG_DEFAULT_ROMSUSEFOLDERBACKGROUND,
         .saveFormat = CFG_DEFAULT_SAVEFORMAT,
         .stateFormat = CFG_DEFAULT_STATEFORMAT,
         .useExtractedFileName = CFG_DEFAULT_EXTRACTEDFILENAME,
+
+        .haptics = CFG_DEFAULT_HAPTICS,
 
         .ntp = CFG_DEFAULT_NTP,
         .currentTimezone = CFG_DEFAULT_TIMEZONE,
@@ -93,17 +97,22 @@ void CFG_defaults(NextUISettings *cfg)
         .notifyDuration = CFG_DEFAULT_NOTIFY_DURATION,
 
         .raEnable = CFG_DEFAULT_RA_ENABLE,
-        .raUsername = CFG_DEFAULT_RA_USERNAME,
-        .raPassword = CFG_DEFAULT_RA_PASSWORD,
         .raHardcoreMode = CFG_DEFAULT_RA_HARDCOREMODE,
-        .raToken = CFG_DEFAULT_RA_TOKEN,
-        .raServerUsername = CFG_DEFAULT_RA_SERVER_USERNAME,
         .raAuthenticated = CFG_DEFAULT_RA_AUTHENTICATED,
         .raShowNotifications = CFG_DEFAULT_RA_SHOW_NOTIFICATIONS,
         .raNotificationDuration = CFG_DEFAULT_RA_NOTIFICATION_DURATION,
         .raProgressNotificationDuration = CFG_DEFAULT_RA_PROGRESS_NOTIFICATION_DURATION,
         .raAchievementSortOrder = CFG_DEFAULT_RA_ACHIEVEMENT_SORT_ORDER,
     };
+
+    // g++ 8.3 (gnu++2a) rejects designated initializers for char-array members,
+    // so set the string fields here instead of in the aggregate above.
+    strcpy(defaults.fontFile, CFG_DEFAULT_FONT_FILE);
+    strcpy(defaults.paletteName, CFG_DEFAULT_PALETTE_NAME);
+    strcpy(defaults.raUsername, CFG_DEFAULT_RA_USERNAME);
+    strcpy(defaults.raPassword, CFG_DEFAULT_RA_PASSWORD);
+    strcpy(defaults.raToken, CFG_DEFAULT_RA_TOKEN);
+    strcpy(defaults.raServerUsername, CFG_DEFAULT_RA_SERVER_USERNAME);
 
     *cfg = defaults;
 }

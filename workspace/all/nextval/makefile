@@ -20,11 +20,8 @@ include ../../$(PLATFORM)/platform/makefile.env
 
 TARGET = nextval
 INCDIR = -I. -I../common/ -I../../$(PLATFORM)/platform/
-# Shared common/ stays C; the tool itself is C++20. Compile the C units to
-# objects, then compile the .cpp and link everything through g++.
-SOURCE = -c ../common/utils.c ../common/config.c
-CXXSOURCE = $(TARGET).cpp
-CXXSOURCE += build/$(PLATFORM)/utils.o build/$(PLATFORM)/config.o
+# Common utils/config are now C++20 too; single g++ compile+link, no C sources.
+CXXSOURCE = $(TARGET).cpp ../common/utils.cpp ../common/config.cpp
 
 CC = $(CROSS_COMPILE)gcc
 CXX = $(CROSS_COMPILE)g++
@@ -39,8 +36,6 @@ PRODUCT= build/$(PLATFORM)/$(TARGET).elf
 
 all:
 	mkdir -p build/$(PLATFORM)
-	$(CC) $(SOURCE) $(CFLAGS) $(LDFLAGS)
-	mv utils.o config.o build/$(PLATFORM)
 	$(CXX) $(CXXSOURCE) -o $(PRODUCT) $(CXXFLAGS) $(LDFLAGS) -lstdc++
 clean:
 	rm -f $(PRODUCT)

@@ -38,8 +38,8 @@ SYSROOT     := $(shell $(CC) --print-sysroot)
 
 INCDIR = -I. -I../common/ -I../../$(PLATFORM)/platform/
 # The shared common/ + platform units stay C; the library itself is C++20.
-CSOURCE = ../common/utils.c ../common/api.c ../../$(PLATFORM)/platform/platform.c
-CXXSOURCE = $(TARGET).cpp
+CSOURCE = ../common/api.c ../../$(PLATFORM)/platform/platform.c
+CXXSOURCE = $(TARGET).cpp ../common/utils.cpp
 
 CFLAGS  += $(OPT)
 CFLAGS  += $(INCDIR) -DPLATFORM=\"$(PLATFORM)\" -std=gnu99

@@ -11,8 +11,14 @@
 #include <dirent.h>
 #include <stdint.h>
 #include <sys/time.h>
+
+// Project C headers declare C-linkage symbols; include as extern "C" so this
+// C++ unit's own exports keep C linkage for the still-C platform.c and any C
+// consumers. utils.h carries its own guard.
+extern "C" {
 #include "defines.h"
 #include "utils.h"
+}
 
 ///////////////////////////////////////
 
@@ -93,7 +99,7 @@ char *replaceString2(const char *orig, char *rep, char *with)
 
     // count the number of replacements needed
     ins = orig;
-    for (count = 0; (tmp = strstr(ins, rep)); ++count)
+    for (count = 0; (tmp = (char*)strstr(ins, rep)); ++count)
         ins = tmp + len_rep;
 
     char *result =
@@ -241,8 +247,8 @@ char *removeExtension(const char *myStr)
 }
 const char *baseName(const char *filename)
 {
-    char *p = strrchr(filename, '/');
-    return p ? p + 1 : (char *)filename;
+    const char *p = strrchr(filename, '/');
+    return p ? p + 1 : filename;
 }
 void folderPath(const char *path, char *result) {
     char pathCopy[256];  
@@ -456,7 +462,7 @@ char* allocFile(char* path) { // caller must free!
 	if (file) {
 		fseek(file, 0L, SEEK_END);
 		size_t size = ftell(file);
-		contents = calloc(size+1, sizeof(char));
+		contents = (char*)calloc(size+1, sizeof(char));
 		fseek(file, 0L, SEEK_SET);
 		fread(contents, sizeof(char), size, file);
 		fclose(file);

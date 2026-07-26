@@ -5,6 +5,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int prefixMatch(char* pre, const char* str);
 int suffixMatch(char* suf,const char* str);
 int exactMatch(const char* str1, const char* str2);
@@ -48,5 +52,9 @@ int clamp(int x, int lower, int upper);
 double clampd(double x, double lower, double upper);
 
 char* findFileInDir(const char *directory, const char *filename);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

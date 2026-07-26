@@ -2,7 +2,13 @@
 #include <stdint.h>
 #include <string.h>
 
+// Project C headers declare C-linkage symbols; include as extern "C" so this
+// C++ unit's exports (declared in scaler.h) keep C linkage for the still-C
+// platform.c and any C consumers.
+extern "C" {
 #include "platform.h" // for HAS_NEON
+#include "scaler.h"
+}
 
 //
 //	arm NEON / C integer scalers for ARMv7 devices
@@ -2914,8 +2920,8 @@ void scale1x_line(void* __restrict src, void* __restrict dst, uint32_t sw, uint3
 	int cpy_pitch = MIN(ip, dp);
 	
 	uint16_t k = 0x0000;
-	uint16_t* restrict src_row = (uint16_t*)src;
-	uint16_t* restrict dst_row = (uint16_t*)dst;
+	uint16_t* __restrict src_row = (uint16_t*)src;
+	uint16_t* __restrict dst_row = (uint16_t*)dst;
 	for (int y=0; y<sh; y+=2) {
 		memcpy(dst_row, src_row, cpy_pitch);
 		dst_row += dst_stride;
@@ -2930,8 +2936,8 @@ void scale2x_line(void* __restrict src, void* __restrict dst, uint32_t sw, uint3
 	dw = dp / 2;
 	uint16_t k = 0x0000;
 	for (unsigned y=0; y<sh; y++) {
-		uint16_t* restrict src_row = (void*)src + y * sp;
-		uint16_t* restrict dst_row = (void*)dst + y * dp * 2;
+		uint16_t* __restrict src_row = (uint16_t*)((char*)src + y * sp);
+		uint16_t* __restrict dst_row = (uint16_t*)((char*)dst + y * dp * 2);
 		for (unsigned x=0; x<sw; x++) {
 			uint16_t c1 = *src_row;
 			uint16_t c2 = Weight3_2( c1, k);
@@ -2951,8 +2957,8 @@ void scale3x_line(void* __restrict src, void* __restrict dst, uint32_t sw, uint3
 	dw = dp / 2;
 	uint16_t k = 0x0000;
 	for (unsigned y=0; y<sh; y++) {
-		uint16_t* restrict src_row = (void*)src + y * sp;
-		uint16_t* restrict dst_row = (void*)dst + y * dp * 3;
+		uint16_t* __restrict src_row = (uint16_t*)((char*)src + y * sp);
+		uint16_t* __restrict dst_row = (uint16_t*)((char*)dst + y * dp * 3);
 		for (unsigned x=0; x<sw; x++) {
 			uint16_t c1 = *src_row;
 			uint16_t c2 = Weight3_2( c1, k);
@@ -2983,8 +2989,8 @@ void scale4x_line(void* __restrict src, void* __restrict dst, uint32_t sw, uint3
 	int row4 = dw * 3;
 	uint16_t k = 0x0000;
 	for (unsigned y=0; y<sh; y++) {
-		uint16_t* restrict src_row = (void*)src + y * sp;
-		uint16_t* restrict dst_row = (void*)dst + y * dp * 4;
+		uint16_t* __restrict src_row = (uint16_t*)((char*)src + y * sp);
+		uint16_t* __restrict dst_row = (uint16_t*)((char*)dst + y * dp * 4);
 		for (unsigned x=0; x<sw; x++) {
 			uint16_t c1 = *src_row;
 			uint16_t c2 = Weight3_2( c1, k);
@@ -3023,8 +3029,8 @@ void scale2x_grid(void* __restrict src, void* __restrict dst, uint32_t sw, uint3
 	dw = dp / 2;
 	uint16_t k = 0x0000;
 	for (unsigned y=0; y<sh; y++) {
-		uint16_t* restrict src_row = (void*)src + y * sp;
-		uint16_t* restrict dst_row = (void*)dst + y * dp * 2;
+		uint16_t* __restrict src_row = (uint16_t*)((char*)src + y * sp);
+		uint16_t* __restrict dst_row = (uint16_t*)((char*)dst + y * dp * 2);
 		for (unsigned x=0; x<sw; x++) {
 			uint16_t c1 = *src_row;
 			uint16_t c2 = Weight3_1( c1, k);
@@ -3044,8 +3050,8 @@ void scale3x_grid(void* __restrict src, void* __restrict dst, uint32_t sw, uint3
 	dw = dp / 2;
 	uint16_t k = 0x0000;
 	for (unsigned y=0; y<sh; y++) {
-		uint16_t* restrict src_row = (void*)src + y * sp;
-		uint16_t* restrict dst_row = (void*)dst + y * dp * 3;
+		uint16_t* __restrict src_row = (uint16_t*)((char*)src + y * sp);
+		uint16_t* __restrict dst_row = (uint16_t*)((char*)dst + y * dp * 3);
 		for (unsigned x=0; x<sw; x++) {
 			uint16_t c1 = *src_row;
 			uint16_t c2 = Weight3_2( c1, k);
