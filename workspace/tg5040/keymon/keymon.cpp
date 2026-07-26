@@ -9,7 +9,11 @@
 #include <pthread.h>
 #include <signal.h>
 
+// msettings.h is a C library header without extern "C" guards; wrap it so this
+// (now C++) unit resolves libmsettings' symbols with C linkage.
+extern "C" {
 #include <msettings.h>
+}
 
 #include <sys/types.h>
 #include <sys/stat.h>
