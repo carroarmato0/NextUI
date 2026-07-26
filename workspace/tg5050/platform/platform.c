@@ -28,14 +28,15 @@
 static const DeviceDescriptor TG5050 = {
 	.scale = 2, .width = 1280, .height = 720,
 	.main_row_count = 10, .quick_switcher_count = 4, .padding = 10,
-	.joy_l3 = 9, .joy_r3 = 10, .joy_plus = 128, .joy_minus = 129,
+	.joy_l3 = 9, .joy_r3 = 10,
 	.joy_l4 = JOY_NA, .joy_r4 = JOY_NA, .joy_menu_alt = JOY_NA,
+	.joy_plus = 128, .joy_minus = 129,
 	.cpu_speed_path = TG5050_CPU_SPEED_PATH,
 	.gpu_temp_path = TG5050_GPU_TEMP_PATH,
+	.rumble_gpio_path = TG5050_RUMBLE_GPIO,
 	.gpu_speed_fixed = 0,
 	.gpu_freq_path = TG5050_GPU_FREQ_PATH,
 	.gpu_usage_path = TG5050_GPU_USAGE_PATH,
-	.rumble_gpio_path = TG5050_RUMBLE_GPIO,
 };
 const DeviceDescriptor* deviceModel = &TG5050;
 #include "api.h"
@@ -105,12 +106,12 @@ void PLAT_getGPUUsage() {
 
 static struct WIFI_connection connection = {
 	.valid = false,
+	.ssid = {0},
+	.ip = {0},
 	.freq = -1,
+	.rssi = -1,
 	.link_speed = -1,
 	.noise = -1,
-	.rssi = -1,
-	.ip = {0},
-	.ssid = {0},
 };
 
 static inline void connection_reset(struct WIFI_connection *connection_info)

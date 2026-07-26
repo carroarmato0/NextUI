@@ -39,26 +39,28 @@ int is_brickpro = 0;
 static const DeviceDescriptor TG5040_BRICK = {
 	.scale = 3, .width = 1024, .height = 768,
 	.main_row_count = 7, .quick_switcher_count = 3, .padding = 5,
-	.joy_l3 = 9, .joy_r3 = 10, .joy_plus = 14, .joy_minus = 13,
+	.joy_l3 = 9, .joy_r3 = 10,
 	.joy_l4 = JOY_NA, .joy_r4 = JOY_NA, .joy_menu_alt = JOY_NA,
+	.joy_plus = 14, .joy_minus = 13,
 	.cpu_speed_path = TG5040_CPU_SPEED_PATH,
 	.gpu_temp_path = TG5040_GPU_TEMP_PATH,
+	.rumble_gpio_path = TG5040_RUMBLE_GPIO,
 	.gpu_speed_fixed = 660,
 	.gpu_freq_path = NULL,
 	.gpu_usage_path = NULL,
-	.rumble_gpio_path = TG5040_RUMBLE_GPIO,
 };
 static const DeviceDescriptor TG5040_SMART_PRO = {
 	.scale = 2, .width = 1280, .height = 720,
 	.main_row_count = 10, .quick_switcher_count = 4, .padding = 10,
-	.joy_l3 = JOY_NA, .joy_r3 = JOY_NA, .joy_plus = 128, .joy_minus = 129,
+	.joy_l3 = JOY_NA, .joy_r3 = JOY_NA,
 	.joy_l4 = JOY_NA, .joy_r4 = JOY_NA, .joy_menu_alt = JOY_NA,
+	.joy_plus = 128, .joy_minus = 129,
 	.cpu_speed_path = TG5040_CPU_SPEED_PATH,
 	.gpu_temp_path = TG5040_GPU_TEMP_PATH,
+	.rumble_gpio_path = TG5040_RUMBLE_GPIO,
 	.gpu_speed_fixed = 660,
 	.gpu_freq_path = NULL,
 	.gpu_usage_path = NULL,
-	.rumble_gpio_path = TG5040_RUMBLE_GPIO,
 };
 // TrimUI Brick Pro: a distinct tg5040 device (is_brickpro) sharing the Brick's
 // 1024x768 screen and menu layout, but adding the Smart Pro's dual analog
@@ -70,14 +72,15 @@ static const DeviceDescriptor TG5040_SMART_PRO = {
 static const DeviceDescriptor TG5040_BRICK_PRO = {
 	.scale = 3, .width = 1024, .height = 768,
 	.main_row_count = 7, .quick_switcher_count = 3, .padding = 5,
-	.joy_l3 = 9, .joy_r3 = 10, .joy_plus = 14, .joy_minus = 13,
+	.joy_l3 = 9, .joy_r3 = 10,
 	.joy_l4 = 11, .joy_r4 = 12, .joy_menu_alt = 15,
+	.joy_plus = 14, .joy_minus = 13,
 	.cpu_speed_path = TG5040_CPU_SPEED_PATH,
 	.gpu_temp_path = TG5040_GPU_TEMP_PATH,
+	.rumble_gpio_path = TG5040_RUMBLE_GPIO,
 	.gpu_speed_fixed = 660,
 	.gpu_freq_path = NULL,
 	.gpu_usage_path = NULL,
-	.rumble_gpio_path = TG5040_RUMBLE_GPIO,
 };
 // Default to Smart Pro so the geometry/button macros are valid even before
 // init runs; resolveDeviceModel() refines it once DEVICE is known.
@@ -124,12 +127,12 @@ void PLAT_initInput(void) {
 
 static struct WIFI_connection connection = {
 	.valid = false,
+	.ssid = {0},
+	.ip = {0},
 	.freq = -1,
+	.rssi = -1,
 	.link_speed = -1,
 	.noise = -1,
-	.rssi = -1,
-	.ip = {0},
-	.ssid = {0},
 };
 
 static inline void connection_reset(struct WIFI_connection *connection_info)
@@ -481,12 +484,12 @@ char *PLAT_getCurrentTimezone() {
 
 	char *output = (char *)malloc(256);
 	if (!output) {
-		return false;
+		return NULL;
 	}
 	FILE *fp = popen("uci get system.@system[0].zonename", "r");
 	if (!fp) {
 		free(output);
-		return false;
+		return NULL;
 	}
 	fgets(output, 256, fp);
 	pclose(fp);
