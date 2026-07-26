@@ -25,7 +25,7 @@ void PLAT_updateInput(const SDL_Event *event) {
         int device_index = event->jdevice.which;
         SDL_Joystick *new_joy = SDL_JoystickOpen(device_index);
         if (new_joy) {
-            joysticks = realloc(joysticks, sizeof(SDL_Joystick *) * (num_joysticks + 1));
+            joysticks = (SDL_Joystick **)realloc(joysticks, sizeof(SDL_Joystick *) * (num_joysticks + 1));
             joysticks[num_joysticks++] = new_joy;
             LOG_info("Joystick added at index %d: %s\n", device_index, SDL_JoystickName(new_joy));
         } else {
@@ -50,7 +50,7 @@ void PLAT_updateInput(const SDL_Event *event) {
                     free(joysticks);
                     joysticks = NULL;
                 } else {
-                    joysticks = realloc(joysticks, sizeof(SDL_Joystick *) * num_joysticks);
+                    joysticks = (SDL_Joystick **)realloc(joysticks, sizeof(SDL_Joystick *) * num_joysticks);
                 }
                 break;
             }
