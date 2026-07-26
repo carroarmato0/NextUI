@@ -1,13 +1,17 @@
 // loosely based on https://github.com/gameblabla/clock_sdl_app
 
-#include <stdio.h>
-#include <time.h>
+#include <cstdio>
+#include <ctime>
 #include <unistd.h>
-#include <msettings.h>
 
+// Project + libmsettings C headers declare C-linkage symbols defined in the
+// still-C common/ and libmsettings translation units; include as extern "C".
+extern "C" {
+#include <msettings.h>
 #include "defines.h"
 #include "api.h"
 #include "utils.h"
+}
 
 enum {
 	CURSOR_YEAR,
@@ -32,20 +36,21 @@ int main(int argc , char* argv[]) {
 	SDL_FillRect(digits, NULL, RGB_BLACK);
 	
 	SDL_Surface* digit;
-	char* chars[] = { "0","1","2","3","4","5","6","7","8","9","/",":", NULL };
-	char* c;
+	const char* chars[] = { "0","1","2","3","4","5","6","7","8","9","/",":", NULL };
+	const char* c;
 	int i = 0;
 #define DIGIT_WIDTH 10
 #define DIGIT_HEIGHT 16
 
 #define CHAR_SLASH 10
 #define CHAR_COLON 11
-	while (c = chars[i]) {
+	while ((c = chars[i])) {
 		digit = TTF_RenderUTF8_Blended(GFX_getFonts()->large, c, COLOR_WHITE);
 		int y = i==CHAR_COLON ? SCALE1(-1.5) : 0; // : sits too low naturally
 		// TODO: y offset is wrong here
 		// printf("%s x:%i y:%i SCALE1(DIGIT_HEIGHT):%i SCALE1(DIGIT_HEIGHT) - digit->h:%i\n", c, (i * SCALE1(DIGIT_WIDTH)), y, SCALE1(DIGIT_HEIGHT), SCALE1(DIGIT_HEIGHT) - digit->h); fflush(stdout);
-		SDL_BlitSurface(digit, NULL, digits, &(SDL_Rect){ (i * SCALE1(DIGIT_WIDTH)) + (SCALE1(DIGIT_WIDTH) - digit->w)/2, y + (SCALE1(DIGIT_HEIGHT) - digit->h)/2 });
+		SDL_Rect dst = { (i * SCALE1(DIGIT_WIDTH)) + (SCALE1(DIGIT_WIDTH) - digit->w)/2, y + (SCALE1(DIGIT_HEIGHT) - digit->h)/2 };
+		SDL_BlitSurface(digit, NULL, digits, &dst);
 		SDL_FreeSurface(digit);
 		i += 1;
 	}
@@ -67,15 +72,20 @@ int main(int argc , char* argv[]) {
 	int32_t seconds_selected = tm.tm_sec;
 	int32_t am_selected = tm.tm_hour < 12;
 	
-	// x,y,w are pre-scaled
-	int blit(int i, int x, int y) {
-		SDL_BlitSurface(digits, &(SDL_Rect){i*SCALE1(10),0,SCALE2(10,16)}, screen, &(SDL_Rect){x,y});
+	// x,y,w are pre-scaled. These were GCC nested functions (a C-only extension);
+	// as C++ they become lambdas capturing the enclosing state (digits/screen and
+	// the date fields) by reference.
+	auto blit = [&](int i, int x, int y) -> int {
+		SDL_Rect src = { i*SCALE1(10), 0, SCALE2(10,16) };
+		SDL_Rect dst = { x, y };
+		SDL_BlitSurface(digits, &src, screen, &dst);
 		return x + SCALE1(10);
-	}
-	void blitBar(int x, int y, int w) {
-		GFX_blitPill(ASSET_UNDERLINE, screen, &(SDL_Rect){x,y,w});
-	}
-	int blitNumber(int num, int x, int y) {
+	};
+	auto blitBar = [&](int x, int y, int w) {
+		SDL_Rect dst = { x, y, w };
+		GFX_blitPill(ASSET_UNDERLINE, screen, &dst);
+	};
+	auto blitNumber = [&](int num, int x, int y) -> int {
 		int n;
 		if (num > 999) {
 			n = num / 1000;
@@ -94,8 +104,8 @@ int main(int argc , char* argv[]) {
 		x = blit(n, x,y);
 		
 		return x;
-	}
-	void validate(void) {
+	};
+	auto validate = [&]() {
 		// leap year
 		uint32_t february_days = 28;
 		if ( ((year_selected % 4 == 0) && (year_selected % 100 != 0)) || (year_selected % 400 == 0)) february_days = 29;
@@ -135,7 +145,7 @@ int main(int argc , char* argv[]) {
 		else if (minute_selected < 0) minute_selected += 60;
 		if (seconds_selected > 59) seconds_selected -= 60;
 		else if (seconds_selected < 0) seconds_selected += 60;
-	}
+	};
 	
 	int option_count = 7;
 
@@ -254,9 +264,15 @@ int main(int argc , char* argv[]) {
 			GFX_blitHardwareGroup(screen, show_setting);
 			
 			if (show_setting) GFX_blitHardwareHints(screen, show_setting);
-			else GFX_blitButtonGroup((char*[]){ "SELECT",show_24hour?"12 HOUR":"24 HOUR", NULL }, 0, screen, 0);
+			else {
+				// Named local array: g++ 8.3 miscompiles a (char*[]){...} compound
+				// literal passed straight to a function.
+				const char* hints_hour[] = { "SELECT", show_24hour?"12 HOUR":"24 HOUR", NULL };
+				GFX_blitButtonGroup((char**)hints_hour, 0, screen, 0);
+			}
 
-			GFX_blitButtonGroup((char*[]){ "B","CANCEL", "A","SET", NULL }, 1, screen, 1);
+			const char* hints_setcancel[] = { "B","CANCEL", "A","SET", NULL };
+			GFX_blitButtonGroup((char**)hints_setcancel, 1, screen, 1);
 		
 			// 376 or 446 (@2x)
 			// 188 or 223 (@1x)
@@ -291,12 +307,13 @@ int main(int argc , char* argv[]) {
 			x = blit(CHAR_COLON, x,y);
 			x = blitNumber(seconds_selected, x,y);
 			
-			int ampm_w;
+			int ampm_w = 0;
 			if (!show_24hour) {
 				x += SCALE1(10); // space
 				SDL_Surface* text = TTF_RenderUTF8_Blended(GFX_getFonts()->large, am_selected ? "AM" : "PM", COLOR_WHITE);
 				ampm_w = text->w + SCALE1(2);
-				SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){x,y-SCALE1(3)});
+				SDL_Rect dst = { x, y-SCALE1(3) };
+				SDL_BlitSurface(text, NULL, screen, &dst);
 				SDL_FreeSurface(text);
 			}
 		

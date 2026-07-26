@@ -1,14 +1,17 @@
-#include <stdio.h>
+#include <cstdio>
 #include <unistd.h>
-#include <stdbool.h>
-#include <stdlib.h>
+#include <cstdlib>
 #include <dirent.h>
 #include <signal.h>
-#include <msettings.h>
 
+// Project + libmsettings C headers declare C-linkage symbols defined in the
+// still-C common/ and libmsettings translation units; include as extern "C".
+extern "C" {
+#include <msettings.h>
 #include "defines.h"
 #include "api.h"
 #include "utils.h"
+}
 
 static bool quit = false;
 
@@ -57,9 +60,9 @@ int loadImages()
                 SDL_Surface *bmp = IMG_Load(path);
                 if (bmp) {
                     count++;
-                    images = realloc(images, sizeof(SDL_Surface*) * count);
+                    images = (SDL_Surface**)realloc(images, sizeof(SDL_Surface*) * count);
                     images[count-1] = bmp;
-                    image_paths = realloc(image_paths, sizeof(char*) * count);
+                    image_paths = (char**)realloc(image_paths, sizeof(char*) * count);
                     image_paths[count-1] = strdup(path);
                 }
             }
@@ -140,7 +143,7 @@ int main(int argc, char *argv[])
                 // sync
                 // umount $BOOT_PATH
                 // reboot
-                char* boot_path = "/mnt/boot/";
+                const char* boot_path = "/mnt/boot/";
                 char* logo_path = image_paths[selected];
                 char cmd[256]; 
                 snprintf(cmd, sizeof(cmd), "mkdir -p %s && mount -t vfat /dev/mmcblk0p1 %s && cp \"%s\" %s/bootlogo.bmp && sync && umount %s && reboot", boot_path, boot_path, logo_path, boot_path, boot_path);
@@ -179,8 +182,12 @@ int main(int argc, char *argv[])
                 SDL_BlitSurface(image, NULL, screen, &image_rect);
             }
 
-            GFX_blitButtonGroup((char *[]){"L/R", "SCROLL", NULL}, 0, screen, 0);
-            GFX_blitButtonGroup((char *[]){"A", "SET", "B", "BACK", NULL}, 1, screen, 1);
+            // Route button hints through named local arrays: g++ 8.3 miscompiles
+            // a (char*[]){...} compound literal passed straight to a function.
+            const char* hints_scroll[] = {"L/R", "SCROLL", NULL};
+            GFX_blitButtonGroup((char**)hints_scroll, 0, screen, 0);
+            const char* hints_set[] = {"A", "SET", "B", "BACK", NULL};
+            GFX_blitButtonGroup((char**)hints_set, 1, screen, 1);
 
             GFX_flip(screen);
             dirty = 0;
