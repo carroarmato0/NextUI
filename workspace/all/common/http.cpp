@@ -1,5 +1,10 @@
+// Project C headers declare C-linkage symbols; include as extern "C" so this
+// C++ unit links against the unmangled names and its own exports keep C linkage
+// for the still-C platform.c. http.h carries its own guard.
+extern "C" {
 #include "http.h"
 #include "defines.h"
+}
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,7 +15,9 @@
 // SDL is used here only for threading (SDL_CreateThread/SDL_DetachThread)
 // to run HTTP requests asynchronously without blocking the main loop.
 // HTTP communication itself uses curl via popen().
+extern "C" {
 #include "sdl.h"
+}
 
 // Build version info (defined in makefile)
 #ifndef BUILD_HASH
@@ -33,7 +40,7 @@ typedef struct {
 
 static int HTTPBuffer_init(HTTPBuffer* buf) {
 	buf->capacity = 4096;
-	buf->data = malloc(buf->capacity);
+	buf->data = (char*)malloc(buf->capacity);
 	if (!buf->data) return -1;
 	buf->data[0] = '\0';
 	buf->size = 0;
@@ -49,7 +56,7 @@ static int HTTPBuffer_append(HTTPBuffer* buf, const char* data, size_t len) {
 		if (new_cap > HTTP_MAX_RESPONSE_SIZE) {
 			return -1; // Too large
 		}
-		char* new_data = realloc(buf->data, new_cap);
+		char* new_data = (char*)realloc(buf->data, new_cap);
 		if (!new_data) return -1;
 		buf->data = new_data;
 		buf->capacity = new_cap;
@@ -81,7 +88,7 @@ static char* shell_escape(const char* str) {
 	}
 	
 	// Allocate: original + 3 chars per quote ('"'"') + 2 for surrounding quotes + 1 for null
-	char* escaped = malloc(len + quotes * 3 + 3);
+	char* escaped = (char*)malloc(len + quotes * 3 + 3);
 	if (!escaped) return NULL;
 	
 	char* p = escaped;
@@ -106,7 +113,7 @@ static char* shell_escape(const char* str) {
 
 // Execute curl and capture output
 static HTTP_Response* execute_curl(const char* url, const char* post_data, const char* content_type) {
-	HTTP_Response* response = calloc(1, sizeof(HTTP_Response));
+	HTTP_Response* response = (HTTP_Response*)calloc(1, sizeof(HTTP_Response));
 	if (!response) return NULL;
 	
 	response->http_status = -1;
@@ -287,10 +294,10 @@ static int async_request_thread(void* data) {
 static void start_async_request(const char* url, const char* post_data, 
                                 const char* content_type, HTTP_Callback callback, 
                                 void* userdata) {
-	AsyncRequestData* req = calloc(1, sizeof(AsyncRequestData));
+	AsyncRequestData* req = (AsyncRequestData*)calloc(1, sizeof(AsyncRequestData));
 	if (!req) {
 		// Callback with error
-		HTTP_Response* response = calloc(1, sizeof(HTTP_Response));
+		HTTP_Response* response = (HTTP_Response*)calloc(1, sizeof(HTTP_Response));
 		if (response) {
 			response->http_status = -1;
 			response->error = strdup("Memory allocation failed");
@@ -309,7 +316,7 @@ static void start_async_request(const char* url, const char* post_data,
 		free(req->post_data);
 		free(req->content_type);
 		free(req);
-		HTTP_Response* response = calloc(1, sizeof(HTTP_Response));
+		HTTP_Response* response = (HTTP_Response*)calloc(1, sizeof(HTTP_Response));
 		if (response) {
 			response->http_status = -1;
 			response->error = strdup("Memory allocation failed");
@@ -325,7 +332,7 @@ static void start_async_request(const char* url, const char* post_data,
 		free(req->post_data);
 		free(req->content_type);
 		free(req);
-		HTTP_Response* response = calloc(1, sizeof(HTTP_Response));
+		HTTP_Response* response = (HTTP_Response*)calloc(1, sizeof(HTTP_Response));
 		if (response) {
 			response->http_status = -1;
 			response->error = strdup("Failed to create thread");
@@ -371,7 +378,7 @@ char* HTTP_urlEncode(const char* str) {
 	
 	// Count required size (worst case: every char becomes %XX)
 	size_t len = strlen(str);
-	char* encoded = malloc(len * 3 + 1);
+	char* encoded = (char*)malloc(len * 3 + 1);
 	if (!encoded) return NULL;
 	
 	char* p = encoded;

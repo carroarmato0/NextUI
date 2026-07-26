@@ -1,7 +1,12 @@
+// Project C headers declare C-linkage symbols; include as extern "C" so this
+// C++ unit links against the unmangled names and its own exports keep C linkage
+// for the still-C platform.c. notification.h carries its own guard.
+extern "C" {
 #include "notification.h"
 #include "defines.h"
 #include "api.h"
 #include "config.h"
+}
 #include <string.h>
 #include <stdio.h>
 
@@ -397,8 +402,9 @@ static void render_notification_pill(Notification* n, int x, int y, SDL_Color te
     if (n->type == NOTIFICATION_OFFLINE_ACHIEVEMENT) {
         int wifi_size = SCALE1(12);
         int wifi_y = notif_padding_y + (text_h - wifi_size) / 2;
+        SDL_Rect wifi_dst = {content_x, wifi_y};
         GFX_blitAssetColor(ASSET_WIFI_OFF, NULL, notif_surface,
-                           &(SDL_Rect){content_x, wifi_y}, THEME_COLOR1_255);
+                           &wifi_dst, THEME_COLOR1_255);
         content_x += wifi_size + notif_icon_gap;
     }
     

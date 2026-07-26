@@ -1,8 +1,13 @@
+// Project C headers declare C-linkage symbols; include as extern "C" so this
+// C++ unit links against the unmangled names and its own exports keep C linkage
+// for the still-C platform.c. ra_auth.h / http.h carry their own guards.
+extern "C" {
 #include "ra_auth.h"
 #include "ra_util.h"
 #include "http.h"
 #include "config.h"
 #include "defines.h"
+}
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -138,7 +143,7 @@ void RA_authenticate(const char* username, const char* password,
     }
     
     // Create async context
-    RA_AsyncAuthContext* ctx = calloc(1, sizeof(RA_AsyncAuthContext));
+    RA_AsyncAuthContext* ctx = (RA_AsyncAuthContext*)calloc(1, sizeof(RA_AsyncAuthContext));
     if (!ctx) {
         RA_AuthResponse response = {0};
         response.result = RA_AUTH_ERROR_UNKNOWN;

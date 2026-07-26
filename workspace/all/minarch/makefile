@@ -27,8 +27,8 @@ INCDIR = -I. -I./libretro-common/include/ -I../common/ -I../../$(PLATFORM)/platf
 # C++ files compile as C++; everything links through g++ so the two can mix
 # as modules are migrated to C++ incrementally.
 CSOURCE = ../common/scaler.c ../common/utils.c ../common/config.c ../common/api.c \
-         ../common/notification.c ../../$(PLATFORM)/platform/platform.c
-CXXSOURCE = $(TARGET).cpp \
+         ../../$(PLATFORM)/platform/platform.c
+CXXSOURCE = $(TARGET).cpp ../common/notification.cpp \
          ma_audio.cpp ma_input.cpp ma_runframe.cpp ma_cheats.cpp ma_core.cpp \
          ma_rewind.cpp ma_saves.cpp ma_game.cpp ma_environment.cpp \
          ma_options.cpp ma_video.cpp ma_menu.cpp ma_frontend_opts.cpp ma_config.cpp
@@ -38,8 +38,7 @@ ifneq (,$(filter $(PLATFORM),tg5040 tg5050 my355 desktop))
 # RA source files (shared common/ helpers stay C; the two minarch-local RA units
 # are C++). ra_integration sits on the rcheevos C callback boundary — kept
 # mechanical, no throwing constructs on that path.
-CSOURCE += ../common/http.c ../common/ra_badges.c
-CXXSOURCE += ra_integration.cpp chd_reader.cpp ../common/ra_offline.cpp ../common/ra_sync.cpp ../common/ra_event_queue.cpp
+CXXSOURCE += ra_integration.cpp chd_reader.cpp ../common/ra_offline.cpp ../common/ra_sync.cpp ../common/ra_event_queue.cpp ../common/http.cpp ../common/ra_badges.cpp
 endif
 
 CC  = $(CROSS_COMPILE)gcc
