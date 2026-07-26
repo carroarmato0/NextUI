@@ -1,12 +1,17 @@
 // heavily modified from the Onion original: https://github.com/OnionUI/Onion/blob/main/src/playActivity/playActivity.c
-#include <stdio.h>
+#include <cstdio>
+#include <cstring>
 
+#include <sqlite3.h>
+
+// Project + libgametimedb C headers declare C-linkage symbols defined in the
+// still-C common/ and libgametimedb translation units; include as extern "C".
+extern "C" {
 #include "defines.h"
 #include "api.h"
 #include "utils.h"
-
-#include <sqlite3.h>
 #include <gametimedb.h>
+}
 
 void printUsage()
 {

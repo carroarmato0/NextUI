@@ -1,17 +1,21 @@
 // heavily modified from the Onion original: https://github.com/OnionUI/Onion/tree/main/src/batmon
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdbool.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <unistd.h>
 #include <pthread.h>
 #include <signal.h>
 
+#include <sqlite3.h>
+
+// Project + libbatmondb C headers declare C-linkage symbols defined in the
+// still-C common/ and libbatmondb translation units; include them as extern "C"
+// so this C++ unit links against the unmangled names.
+extern "C" {
 #include <defines.h>
 #include <api.h>
-
-#include <sqlite3.h>
 #include <batmondb.h>
+}
 
 #define CHECK_BATTERY_TIMEOUT_S 15 // s - check battery percentage every 15s
 
@@ -24,7 +28,7 @@ static bool is_suspended = false;
 
 int battery_current_state_duration = 0;
 int best_session_time = 0;
-char *device_model = NULL;
+char *device_model = nullptr;
 
 void register_handler();
 void sigintHandler(int signum) {

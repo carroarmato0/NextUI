@@ -1,8 +1,13 @@
-#include <stdio.h>
+#include <cstdio>
+#include <cstring>
 
+// Project C headers declare C-linkage symbols defined in the still-C common/
+// translation units; include them as extern "C".
+extern "C" {
 #include "defines.h"
 #include "api.h"
 #include "utils.h"
+}
 
 void printUsage()
 {
@@ -11,7 +16,7 @@ void printUsage()
 
 int main(int argc, char *argv[])
 {
-    CFG_init(NULL, NULL);
+    CFG_init(nullptr, nullptr);
 
     if (argc <= 1) {
         CFG_print();
