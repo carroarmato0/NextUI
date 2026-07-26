@@ -6,6 +6,10 @@
 #include "config.h"
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 ///////////////////////////////
 
 enum {
@@ -973,5 +977,9 @@ void PLAT_bluetoothSetVolume(int vol);
 #define BT_isConnected PLAT_bluetoothConnected
 #define BT_getVolume PLAT_bluetoothVolume
 #define BT_setVolume PLAT_bluetoothSetVolume
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

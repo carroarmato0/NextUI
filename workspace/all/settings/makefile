@@ -21,9 +21,9 @@ SDL?=SDL
 
 TARGET = settings
 INCDIR = -I. -I../common/ -I../../$(PLATFORM)/platform/
-SOURCE = -c ../common/api.c ../../$(PLATFORM)/platform/platform.c
-CXXSOURCE = ../common/palette.cpp ../common/utils.cpp ../common/config.cpp ../common/scaler.cpp ../common/ra_offline.cpp ../common/ra_sync.cpp ../common/ra_event_queue.cpp ../common/http.cpp ../common/ra_auth.cpp $(TARGET).cpp menu.cpp colorpickermenu.cpp palettemenu.cpp fnbuttonmenu.cpp wifimenu.cpp btmenu.cpp keyboardprompt.cpp
-CXXSOURCE += build/$(PLATFORM)/api.o build/$(PLATFORM)/platform.o
+SOURCE = -c ../../$(PLATFORM)/platform/platform.c
+CXXSOURCE = ../common/palette.cpp ../common/utils.cpp ../common/config.cpp ../common/scaler.cpp ../common/api.cpp ../common/ra_offline.cpp ../common/ra_sync.cpp ../common/ra_event_queue.cpp ../common/http.cpp ../common/ra_auth.cpp $(TARGET).cpp menu.cpp colorpickermenu.cpp palettemenu.cpp fnbuttonmenu.cpp wifimenu.cpp btmenu.cpp keyboardprompt.cpp
+CXXSOURCE += build/$(PLATFORM)/platform.o
 
 CC = $(CROSS_COMPILE)gcc
 CXX = $(CROSS_COMPILE)g++
@@ -53,7 +53,7 @@ PRODUCT= build/$(PLATFORM)/$(TARGET).elf
 all: $(PREFIX_LOCAL)/include/msettings.h
 	mkdir -p build/$(PLATFORM)
 	$(CC) $(SOURCE) $(CFLAGS) $(LDFLAGS)
-	mv api.o platform.o build/$(PLATFORM)
+	mv platform.o build/$(PLATFORM)
 	$(CXX) $(CXXSOURCE) -o $(PRODUCT) $(CXXFLAGS) $(LDFLAGS) -lstdc++
 clean:
 	rm -f $(PRODUCT)

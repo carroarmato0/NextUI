@@ -23,9 +23,9 @@ TARGET = minput
 INCDIR = -I. -I../common/ -I../../$(PLATFORM)/platform/
 # Shared common/ + platform stay C; the tool itself is C++20. Compile the C
 # units to objects, then compile the .cpp and link everything through g++.
-SOURCE = -c ../common/api.c ../../$(PLATFORM)/platform/platform.c
-CXXSOURCE = $(TARGET).cpp ../common/utils.cpp ../common/config.cpp ../common/scaler.cpp
-CXXSOURCE += build/$(PLATFORM)/api.o build/$(PLATFORM)/platform.o
+SOURCE = -c ../../$(PLATFORM)/platform/platform.c
+CXXSOURCE = $(TARGET).cpp ../common/utils.cpp ../common/config.cpp ../common/scaler.cpp ../common/api.cpp
+CXXSOURCE += build/$(PLATFORM)/platform.o
 
 CC = $(CROSS_COMPILE)gcc
 CXX = $(CROSS_COMPILE)g++
@@ -42,7 +42,7 @@ PRODUCT= build/$(PLATFORM)/$(TARGET).elf
 all: $(PREFIX_LOCAL)/include/msettings.h
 	mkdir -p build/$(PLATFORM)
 	$(CC) $(SOURCE) $(CFLAGS) $(LDFLAGS)
-	mv api.o platform.o build/$(PLATFORM)
+	mv platform.o build/$(PLATFORM)
 	$(CXX) $(CXXSOURCE) -o $(PRODUCT) $(CXXFLAGS) $(LDFLAGS) -lstdc++
 clean:
 	rm -f $(PRODUCT)
