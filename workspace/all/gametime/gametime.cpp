@@ -1,16 +1,20 @@
 // heavily modified from the Onion original: https://github.com/OnionUI/Onion/blob/main/src/playActivity/playActivityUI.c
-#include <stdio.h>
+#include <cstdio>
 #include <unistd.h>
-#include <stdbool.h>
-#include <signal.h>
-#include <msettings.h>
+#include <csignal>
+#include <cmath>
 
+#include <sqlite3.h>
+
+// Project + libgametimedb C headers declare C-linkage symbols defined in the
+// still-C common/ and libgametimedb translation units; include as extern "C".
+extern "C" {
+#include <msettings.h>
 #include "defines.h"
 #include "api.h"
 #include "utils.h"
-
-#include <sqlite3.h>
 #include <gametimedb.h>
+}
 
 struct ListLayout
 {
@@ -59,8 +63,10 @@ int _renderText(const char *text, TTF_Font *font, SDL_Color color, SDL_Rect *rec
     SDL_Surface *textSurface = TTF_RenderUTF8_Blended(font, text, color);
     if (textSurface != NULL) {
         text_width = textSurface->w;
-        if (right_align)
-            SDL_BlitSurface(textSurface, NULL, screen, &(SDL_Rect){rect->w - textSurface->w, rect->y, rect->w, rect->h});
+        if (right_align) {
+            SDL_Rect r = {rect->w - textSurface->w, rect->y, rect->w, rect->h};
+            SDL_BlitSurface(textSurface, NULL, screen, &r);
+        }
         else
             SDL_BlitSurface(textSurface, NULL, screen, rect);
         SDL_FreeSurface(textSurface);
@@ -172,7 +178,7 @@ SDL_Surface *loadRomImage(char *image_path)
 void preloadRomImages()
 {
     // load all rom images into SDL_Surfaces
-    romImages = malloc(sizeof(SDL_Surface *) * play_activities->count);
+    romImages = (SDL_Surface **)malloc(sizeof(SDL_Surface *) * play_activities->count);
     for (int i = 0; i < play_activities->count; i++) {
         PlayActivity *entry = play_activities->play_activity[i];
         ROM *rom = entry->rom;
@@ -209,12 +215,13 @@ void renderList(int count, int start, int end, int selected)
         PlayActivity *entry = play_activities->play_activity[index];
         ROM *rom = entry->rom;
 
-        renderRoundedRectangle((SDL_Rect){
-            layout.list_display_start_x, 
-            layout.list_display_start_y + row * elemHeight, 
-            layout.list_display_size_x, 
+        SDL_Rect rowRect = {
+            layout.list_display_start_x,
+            layout.list_display_start_y + row * elemHeight,
+            layout.list_display_size_x,
             elemHeight
-        }, isSelected ? RGB_WHITE : RGB_BLACK, SCALE1(24));
+        };
+        renderRoundedRectangle(rowRect, isSelected ? RGB_WHITE : RGB_BLACK, SCALE1(24));
 
         SDL_Surface *romImage = romImages[index];
         if (romImage) {
@@ -238,13 +245,14 @@ void renderList(int count, int start, int end, int selected)
 
             // TODO: no getter exposed for this right now
             //SDL_Rect rect = asset_rects[ASSET_GAMEPAD];
-            SDL_Rect rect = (SDL_Rect){SCALE4(92,51,18,10)};
+            SDL_Rect rect = {SCALE4(92,51,18,10)};
             int x = rectRomImage.x;
             int y = rectRomImage.y;
             x += (SCALE1(IMG_MAX_WIDTH) - rect.w) / 2;
             y += (SCALE1(IMG_MAX_HEIGHT) - rect.h) / 2;
 
-            GFX_blitAssetColor(ASSET_GAMEPAD, NULL, screen, &(SDL_Rect){x,y}, THEME_COLOR1_255);
+            SDL_Rect gamepad_dst = {x,y};
+            GFX_blitAssetColor(ASSET_GAMEPAD, NULL, screen, &gamepad_dst, THEME_COLOR1_255);
         }
 
         cleanName(rom_name, rom->name);
@@ -253,11 +261,12 @@ void renderList(int count, int start, int end, int selected)
             //textColor = uintToColour(THEME_COLOR1);
             textColor = COLOR_BLACK;
         }
-        renderText(rom_name, GFX_getFonts()->medium, textColor, &(SDL_Rect){
-            layout.list_display_start_x + num_width + thumbMargin + SCALE1(IMG_MAX_WIDTH), 
-            layout.list_display_start_y + thumbMargin / 2 + elemHeight * row, 
-            layout.list_display_size_x, 
-            textHeight});
+        SDL_Rect nameRect = {
+            layout.list_display_start_x + num_width + thumbMargin + SCALE1(IMG_MAX_WIDTH),
+            layout.list_display_start_y + thumbMargin / 2 + elemHeight * row,
+            layout.list_display_size_x,
+            textHeight};
+        renderText(rom_name, GFX_getFonts()->medium, textColor, &nameRect);
 
         serializeTime(total, entry->play_time_total);
         serializeTime(average, entry->play_time_average);
@@ -283,10 +292,14 @@ void renderList(int count, int start, int end, int selected)
         #define SCROLL_HEIGHT 4
         int ox = (screen->w - SCALE1(SCROLL_WIDTH)) / 2;
         int oy = SCALE1((PILL_SIZE - SCROLL_HEIGHT) / 2);
-        if (start>0) 
-            GFX_blitAsset(ASSET_SCROLL_UP,   NULL, screen, &(SDL_Rect){ox, SCALE1(PADDING + PILL_SIZE)});
-        if (end<count) 
-            GFX_blitAsset(ASSET_SCROLL_DOWN, NULL, screen, &(SDL_Rect){ox, screen->h - SCALE1(PADDING + PILL_SIZE + BUTTON_SIZE) + oy});
+        if (start>0) {
+            SDL_Rect up_dst = {ox, SCALE1(PADDING + PILL_SIZE)};
+            GFX_blitAsset(ASSET_SCROLL_UP,   NULL, screen, &up_dst);
+        }
+        if (end<count) {
+            SDL_Rect down_dst = {ox, screen->h - SCALE1(PADDING + PILL_SIZE + BUTTON_SIZE) + oy};
+            GFX_blitAsset(ASSET_SCROLL_DOWN, NULL, screen, &down_dst);
+        }
     }
 }
 
@@ -415,8 +428,11 @@ int main(int argc, char *argv[])
 
                 SDL_Surface *text;
                 text = TTF_RenderUTF8_Blended(GFX_getFonts()->large, title, COLOR_WHITE);
-                GFX_blitPill(ASSET_BLACK_PILL, screen, &(SDL_Rect){SCALE1(PADDING), SCALE1(PADDING), max_width, SCALE1(PILL_SIZE)});
-                SDL_BlitSurface(text, &(SDL_Rect){0, 0, max_width - SCALE1(BUTTON_PADDING * 2), text->h}, screen, &(SDL_Rect){SCALE1(PADDING + BUTTON_PADDING), SCALE1(PADDING + 4)});
+                SDL_Rect pill = {SCALE1(PADDING), SCALE1(PADDING), max_width, SCALE1(PILL_SIZE)};
+                GFX_blitPill(ASSET_BLACK_PILL, screen, &pill);
+                SDL_Rect title_src = {0, 0, max_width - SCALE1(BUTTON_PADDING * 2), text->h};
+                SDL_Rect title_dst = {SCALE1(PADDING + BUTTON_PADDING), SCALE1(PADDING + 4)};
+                SDL_BlitSurface(text, &title_src, screen, &title_dst);
                 SDL_FreeSurface(text);
             }
 
@@ -424,10 +440,15 @@ int main(int argc, char *argv[])
 
             if (show_setting)
                 GFX_blitHardwareHints(screen, show_setting);
-            else
-                GFX_blitButtonGroup((char *[]){"U/D", "SCROLL", NULL}, 0, screen, 0);
+            else {
+                // Named local array: g++ 8.3 miscompiles a (char*[]){...} compound
+                // literal passed straight to a function.
+                const char* hints_scroll[] = {"U/D", "SCROLL", NULL};
+                GFX_blitButtonGroup((char**)hints_scroll, 0, screen, 0);
+            }
 
-            GFX_blitButtonGroup((char *[]){"B", "BACK", NULL}, 1, screen, 1);
+            const char* hints_back[] = {"B", "BACK", NULL};
+            GFX_blitButtonGroup((char**)hints_back, 1, screen, 1);
 
             GFX_flip(screen);
             dirty = 0;

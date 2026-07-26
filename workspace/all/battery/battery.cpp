@@ -1,16 +1,20 @@
 // heavily modified from the Onion original: https://github.com/OnionUI/Onion/tree/main/src/batteryMonitorUI
-#include <stdio.h>
+#include <cstdio>
 #include <unistd.h>
-#include <stdbool.h>
-#include <signal.h>
-#include <msettings.h>
+#include <csignal>
+#include <cstdlib>
 
+#include <sqlite3.h>
+
+// Project + libbatmondb C headers declare C-linkage symbols defined in the
+// still-C common/ and libbatmondb translation units; include as extern "C".
+extern "C" {
+#include <msettings.h>
 #include "defines.h"
 #include "api.h"
 #include "utils.h"
-
-#include <sqlite3.h>
 #include <batmondb.h>
+}
 
 #define GRAPH_LINE_WIDTH 1
 
@@ -126,8 +130,8 @@ static void sigHandler(int sig)
 
 static SDL_Surface *screen;
 
-char *device_model = NULL;
-sqlite3 *bat_log_db = NULL;
+char *device_model = nullptr;
+sqlite3 *bat_log_db = nullptr;
 
 void secondsToHoursMinutes(int seconds, char *output)
 {
@@ -196,8 +200,10 @@ int _renderText(const char *text, TTF_Font *font, SDL_Color color, SDL_Rect *rec
     if (textSurface != NULL)
     {
         text_width = textSurface->w;
-        if (right_align)
-            SDL_BlitSurface(textSurface, NULL, screen, &(SDL_Rect){rect->x - textSurface->w, rect->y, rect->w, rect->h});
+        if (right_align) {
+            SDL_Rect r = {rect->x - textSurface->w, rect->y, rect->w, rect->h};
+            SDL_BlitSurface(textSurface, NULL, screen, &r);
+        }
         else
             SDL_BlitSurface(textSurface, NULL, screen, rect);
         SDL_FreeSurface(textSurface);
@@ -395,18 +401,20 @@ void drawBatteryIcon(int percent, SDL_Rect dst) {
     int x = dst.x;
     int y = dst.y;
     //SDL_Rect rect = asset_rects[ASSET_BATTERY];
-    SDL_Rect rect = (SDL_Rect){SCALE4(47,51,17,10)};
-    GFX_blitAsset(ASSET_BATTERY, NULL, screen, &(SDL_Rect){x,y});
+    SDL_Rect rect = {SCALE4(47,51,17,10)};
+    SDL_Rect battery_dst = {x,y};
+    GFX_blitAsset(ASSET_BATTERY, NULL, screen, &battery_dst);
     //rect = asset_rects[ASSET_BATTERY_FILL];
-    rect = (SDL_Rect){SCALE4(81,33,12,6)};
+    rect = SDL_Rect{SCALE4(81,33,12,6)};
     SDL_Rect clip = rect;
     clip.w *= percent;
     clip.w /= 100;
     if (clip.w<=0) return;
     clip.x = rect.w - clip.w;
     clip.y = 0;
-    
-    GFX_blitAsset(ASSET_BATTERY_FILL, &clip, screen, &(SDL_Rect){x+SCALE1(3)+clip.x,y+SCALE1(2)});
+
+    SDL_Rect fill_dst = {x+SCALE1(3)+clip.x,y+SCALE1(2)};
+    GFX_blitAsset(ASSET_BATTERY_FILL, &clip, screen, &fill_dst);
 }
 
 void renderPage()
@@ -453,29 +461,37 @@ void renderPage()
     switch_zoom_profile(segment_duration);
 
     // x axis labels
-    renderText(label[0], GFX_getFonts()->small, COLOR_WHITE, &(SDL_Rect){graph.layout.label1_x, graph.layout.label_y, 32, 32});
-    renderText(label[1], GFX_getFonts()->small, COLOR_WHITE, &(SDL_Rect){graph.layout.label2_x, graph.layout.label_y, 32, 32});
-    renderText(label[2], GFX_getFonts()->small, COLOR_WHITE, &(SDL_Rect){graph.layout.label3_x, graph.layout.label_y, 32, 32});
-    renderText(label[3], GFX_getFonts()->small, COLOR_WHITE, &(SDL_Rect){graph.layout.label4_x, graph.layout.label_y, 32, 32});
+    SDL_Rect lbl0 = {graph.layout.label1_x, graph.layout.label_y, 32, 32};
+    renderText(label[0], GFX_getFonts()->small, COLOR_WHITE, &lbl0);
+    SDL_Rect lbl1 = {graph.layout.label2_x, graph.layout.label_y, 32, 32};
+    renderText(label[1], GFX_getFonts()->small, COLOR_WHITE, &lbl1);
+    SDL_Rect lbl2 = {graph.layout.label3_x, graph.layout.label_y, 32, 32};
+    renderText(label[2], GFX_getFonts()->small, COLOR_WHITE, &lbl2);
+    SDL_Rect lbl3 = {graph.layout.label4_x, graph.layout.label_y, 32, 32};
+    renderText(label[3], GFX_getFonts()->small, COLOR_WHITE, &lbl3);
 
     // y axis "labels"
-    drawBatteryIcon(100, (SDL_Rect){graph.layout.icon_x, graph.layout.icon1_y});
-    drawBatteryIcon(66, (SDL_Rect){graph.layout.icon_x, graph.layout.icon2_y});
-    drawBatteryIcon(33, (SDL_Rect){graph.layout.icon_x, graph.layout.icon3_y});
-    drawBatteryIcon(0, (SDL_Rect){graph.layout.icon_x, graph.layout.icon4_y});
+    drawBatteryIcon(100, SDL_Rect{graph.layout.icon_x, graph.layout.icon1_y});
+    drawBatteryIcon(66, SDL_Rect{graph.layout.icon_x, graph.layout.icon2_y});
+    drawBatteryIcon(33, SDL_Rect{graph.layout.icon_x, graph.layout.icon3_y});
+    drawBatteryIcon(0, SDL_Rect{graph.layout.icon_x, graph.layout.icon4_y});
 
     char text_line[255];
     sprintf(text_line, "Since Charge: %s", session_duration);
-    renderText(text_line, GFX_getFonts()->medium, COLOR_WHITE, &(SDL_Rect){graph.layout.label_session_x, graph.layout.label_session_y, graph.layout.label_size_x, graph.layout.label_size_y});
+    SDL_Rect session_rect = {graph.layout.label_session_x, graph.layout.label_session_y, graph.layout.label_size_x, graph.layout.label_size_y};
+    renderText(text_line, GFX_getFonts()->medium, COLOR_WHITE, &session_rect);
 
     sprintf(text_line, "Current: %s", current_percentage);
-    renderText(text_line, GFX_getFonts()->medium, COLOR_WHITE, &(SDL_Rect){graph.layout.label_current_x, graph.layout.label_current_y, graph.layout.label_size_x, graph.layout.label_size_y});
+    SDL_Rect current_rect = {graph.layout.label_current_x, graph.layout.label_current_y, graph.layout.label_size_x, graph.layout.label_size_y};
+    renderText(text_line, GFX_getFonts()->medium, COLOR_WHITE, &current_rect);
 
     sprintf(text_line, "Remaining: %s", session_left);
-    renderTextAlignRight(text_line, GFX_getFonts()->medium, COLOR_WHITE, &(SDL_Rect){graph.layout.label_left_x, graph.layout.label_left_y, graph.layout.label_size_x, graph.layout.label_size_y});
+    SDL_Rect left_rect = {graph.layout.label_left_x, graph.layout.label_left_y, graph.layout.label_size_x, graph.layout.label_size_y};
+    renderTextAlignRight(text_line, GFX_getFonts()->medium, COLOR_WHITE, &left_rect);
 
     sprintf(text_line, "Longest: %s", session_best);
-    renderTextAlignRight(text_line, GFX_getFonts()->medium, COLOR_WHITE, &(SDL_Rect){graph.layout.label_best_x, graph.layout.label_best_y, graph.layout.label_size_x, graph.layout.label_size_y});
+    SDL_Rect best_rect = {graph.layout.label_best_x, graph.layout.label_best_y, graph.layout.label_size_x, graph.layout.label_size_y};
+    renderTextAlignRight(text_line, GFX_getFonts()->medium, COLOR_WHITE, &best_rect);
 
     int half_line_width = (int)(GRAPH_LINE_WIDTH) / 2;
 
@@ -556,8 +572,10 @@ void renderPage()
             }
         }
         SDL_UnlockSurface(screen);
-        if (x_end != 0)
-            GFX_blitAsset(ASSET_BATTERY_LOW, NULL, screen, &(SDL_Rect){x_end, y_end});
+        if (x_end != 0) {
+            SDL_Rect low_dst = {x_end, y_end};
+            GFX_blitAsset(ASSET_BATTERY_LOW, NULL, screen, &low_dst);
+        }
     }
 }
 
@@ -752,8 +770,11 @@ int main(int argc, char *argv[])
                 SDL_Surface *text;
                 text = TTF_RenderUTF8_Blended(GFX_getFonts()->large, title, COLOR_WHITE);
                 
-                GFX_blitPill(ASSET_BLACK_PILL, screen, &(SDL_Rect){SCALE1(PADDING), SCALE1(PADDING), max_width, SCALE1(PILL_SIZE)});
-                SDL_BlitSurface(text, &(SDL_Rect){0, 0, max_width - SCALE1(BUTTON_PADDING * 2), text->h}, screen, &(SDL_Rect){SCALE1(PADDING + BUTTON_PADDING), SCALE1(PADDING + 4)});
+                SDL_Rect title_pill = {SCALE1(PADDING), SCALE1(PADDING), max_width, SCALE1(PILL_SIZE)};
+                GFX_blitPill(ASSET_BLACK_PILL, screen, &title_pill);
+                SDL_Rect title_src = {0, 0, max_width - SCALE1(BUTTON_PADDING * 2), text->h};
+                SDL_Rect title_dst = {SCALE1(PADDING + BUTTON_PADDING), SCALE1(PADDING + 4)};
+                SDL_BlitSurface(text, &title_src, screen, &title_dst);
                 SDL_FreeSurface(text);
             }
 
@@ -761,10 +782,15 @@ int main(int argc, char *argv[])
 
             if (show_setting)
                 GFX_blitHardwareHints(screen, show_setting);
-            else
-                GFX_blitButtonGroup((char *[]){"L/R", "SCROLL", "L1/R1", "ZOOM", NULL}, 0, screen, 0);
+            else {
+                // Named local array: g++ 8.3 miscompiles a (char*[]){...} compound
+                // literal passed straight to a function.
+                const char* hints_scroll[] = {"L/R", "SCROLL", "L1/R1", "ZOOM", NULL};
+                GFX_blitButtonGroup((char**)hints_scroll, 0, screen, 0);
+            }
 
-            GFX_blitButtonGroup((char *[]){"B", "BACK", NULL}, 1, screen, 1);
+            const char* hints_back[] = {"B", "BACK", NULL};
+            GFX_blitButtonGroup((char**)hints_back, 1, screen, 1);
 
             GFX_flip(screen);
             dirty = 0;

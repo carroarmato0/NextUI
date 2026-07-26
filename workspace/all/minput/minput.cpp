@@ -1,13 +1,17 @@
-#include <stdio.h>
-#include <time.h>
+#include <cstdio>
+#include <ctime>
 #include <unistd.h>
-#include <math.h>
-#include <msettings.h>
+#include <cmath>
 
+// Project + libmsettings C headers declare C-linkage symbols defined in the
+// still-C common/ and libmsettings translation units; include as extern "C".
+extern "C" {
+#include <msettings.h>
 #include "sdl.h"
 #include "defines.h"
 #include "api.h"
 #include "utils.h"
+}
 
 // full-scale SDL joystick axis magnitude, used to map raw axis values to on-screen nub travel
 #define STICK_AXIS_MAX 32767
@@ -37,13 +41,16 @@ static void blitButton(char* label, SDL_Surface* dst, int pressed, int x, int y,
 	if (len<=2) {
 		text = TTF_RenderUTF8_Blended(len==2?GFX_getFonts()->small:GFX_getFonts()->medium, label, text_color);
 		GFX_blitAssetColor(ASSET_BUTTON, NULL, dst, &point, fill);
-		SDL_BlitSurface(text, NULL, dst, &(SDL_Rect){point.x+(SCALE1(BUTTON_SIZE)-text->w)/2,point.y+(SCALE1(BUTTON_SIZE)-text->h)/2});
+		SDL_Rect text_dst = {point.x+(SCALE1(BUTTON_SIZE)-text->w)/2,point.y+(SCALE1(BUTTON_SIZE)-text->h)/2};
+		SDL_BlitSurface(text, NULL, dst, &text_dst);
 	}
 	else {
 		text = TTF_RenderUTF8_Blended(GFX_getFonts()->tiny, label, text_color);
 		w = w ? w : SCALE1(BUTTON_SIZE)/2+text->w;
-		GFX_blitPillColor(ASSET_BUTTON, dst, &(SDL_Rect){point.x,point.y,w,SCALE1(BUTTON_SIZE)}, fill, RGB_WHITE);
-		SDL_BlitSurface(text, NULL, dst, &(SDL_Rect){point.x+(w-text->w)/2,point.y+(SCALE1(BUTTON_SIZE)-text->h)/2,text->w,text->h});
+		SDL_Rect pill = {point.x,point.y,w,SCALE1(BUTTON_SIZE)};
+		GFX_blitPillColor(ASSET_BUTTON, dst, &pill, fill, RGB_WHITE);
+		SDL_Rect text_dst = {point.x+(w-text->w)/2,point.y+(SCALE1(BUTTON_SIZE)-text->h)/2,text->w,text->h};
+		SDL_BlitSurface(text, NULL, dst, &text_dst);
 	}
 
 	SDL_FreeSurface(text);
@@ -54,7 +61,8 @@ static void blitButton(char* label, SDL_Surface* dst, int pressed, int x, int y,
 static void fillCircle(SDL_Surface* dst, int cx, int cy, int radius, uint32_t color) {
 	for (int dy = -radius; dy <= radius; dy++) {
 		int dx = (int)(sqrt((double)radius*radius - (double)dy*dy) + 0.5);
-		SDL_FillRect(dst, &(SDL_Rect){cx-dx, cy+dy, dx*2, 1}, color);
+		SDL_Rect row = {cx-dx, cy+dy, dx*2, 1};
+		SDL_FillRect(dst, &row, color);
 	}
 }
 
@@ -123,7 +131,7 @@ int main(int argc , char* argv[]) {
 				if (has_L2) w += getButtonWidth("L2") + SCALE1(BUTTON_MARGIN);
 				if (has_L4) w += getButtonWidth("L4") + SCALE1(BUTTON_MARGIN);
 				if (!has_L2 && !has_L4) x += SCALE1(PILL_SIZE);
-				GFX_blitPillLight(ASSET_WHITE_PILL, screen, &(SDL_Rect){x, y, w});
+				{ SDL_Rect pill = {x, y, w}; GFX_blitPillLight(ASSET_WHITE_PILL, screen, &pill); }
 
 				blitButton("L1", screen, PAD_isPressed(BTN_L1), x + SCALE1(BUTTON_MARGIN), y+SCALE1(BUTTON_MARGIN),0);
 				if (has_L2) {
@@ -152,7 +160,7 @@ int main(int argc , char* argv[]) {
 				x = FIXED_WIDTH - w - SCALE1(BUTTON_MARGIN + PADDING);
 				if (!has_R2 && !has_R4) x -= SCALE1(PILL_SIZE);
 					
-				GFX_blitPillLight(ASSET_WHITE_PILL, screen, &(SDL_Rect){x,y,w});
+				{ SDL_Rect pill = {x,y,w}; GFX_blitPillLight(ASSET_WHITE_PILL, screen, &pill); }
 
 				if(has_R4) {
 					x+= SCALE1(BUTTON_MARGIN);
@@ -173,24 +181,24 @@ int main(int argc , char* argv[]) {
 				int y = oy + SCALE1(PILL_SIZE*2);
 				int o = SCALE1(BUTTON_MARGIN);
 				
-				SDL_FillRect(screen, &(SDL_Rect){x,y+SCALE1(PILL_SIZE/2),SCALE1(PILL_SIZE),SCALE1(PILL_SIZE*2)}, THEME_COLOR2);
-				GFX_blitPillLight(ASSET_WHITE_PILL, screen, &(SDL_Rect){x,y,0});
+				{ SDL_Rect r = {x,y+SCALE1(PILL_SIZE/2),SCALE1(PILL_SIZE),SCALE1(PILL_SIZE*2)}; SDL_FillRect(screen, &r, THEME_COLOR2); }
+				{ SDL_Rect pill = {x,y,0}; GFX_blitPillLight(ASSET_WHITE_PILL, screen, &pill); }
 				blitButton("U", screen, PAD_isPressed(BTN_DPAD_UP), x+o, y+o,0);
 				
 				y += SCALE1(PILL_SIZE*2);
-				GFX_blitPillLight(ASSET_WHITE_PILL, screen, &(SDL_Rect){x,y,0});
+				{ SDL_Rect pill = {x,y,0}; GFX_blitPillLight(ASSET_WHITE_PILL, screen, &pill); }
 				blitButton("D", screen, PAD_isPressed(BTN_DPAD_DOWN), x+o, y+o,0);
 				
 				x -= SCALE1(PILL_SIZE);
 				y -= SCALE1(PILL_SIZE);
 				
-				SDL_FillRect(screen, &(SDL_Rect){x+SCALE1(PILL_SIZE/2),y,SCALE1(PILL_SIZE*2),SCALE1(PILL_SIZE)}, THEME_COLOR2);
+				{ SDL_Rect r = {x+SCALE1(PILL_SIZE/2),y,SCALE1(PILL_SIZE*2),SCALE1(PILL_SIZE)}; SDL_FillRect(screen, &r, THEME_COLOR2); }
 				
-				GFX_blitPillLight(ASSET_WHITE_PILL, screen, &(SDL_Rect){x,y,0});
+				{ SDL_Rect pill = {x,y,0}; GFX_blitPillLight(ASSET_WHITE_PILL, screen, &pill); }
 				blitButton("L", screen, PAD_isPressed(BTN_DPAD_LEFT), x+o, y+o,0);
 				
 				x += SCALE1(PILL_SIZE*2);
-				GFX_blitPillLight(ASSET_WHITE_PILL, screen, &(SDL_Rect){x,y,0});
+				{ SDL_Rect pill = {x,y,0}; GFX_blitPillLight(ASSET_WHITE_PILL, screen, &pill); }
 				blitButton("R", screen, PAD_isPressed(BTN_DPAD_RIGHT), x+o, y+o,0);
 			}
 			
@@ -201,21 +209,21 @@ int main(int argc , char* argv[]) {
 				int y = oy + SCALE1(PILL_SIZE*2);
 				int o = SCALE1(BUTTON_MARGIN);
 				
-				GFX_blitPillLight(ASSET_WHITE_PILL, screen, &(SDL_Rect){x,y,0});
+				{ SDL_Rect pill = {x,y,0}; GFX_blitPillLight(ASSET_WHITE_PILL, screen, &pill); }
 				blitButton("X", screen, PAD_isPressed(BTN_X), x+o, y+o,0);
 				
 				y += SCALE1(PILL_SIZE*2);
-				GFX_blitPillLight(ASSET_WHITE_PILL, screen, &(SDL_Rect){x,y,0});
+				{ SDL_Rect pill = {x,y,0}; GFX_blitPillLight(ASSET_WHITE_PILL, screen, &pill); }
 				blitButton("B", screen, PAD_isPressed(BTN_B), x+o, y+o,0);
 				
 				x -= SCALE1(PILL_SIZE);
 				y -= SCALE1(PILL_SIZE);
 				
-				GFX_blitPillLight(ASSET_WHITE_PILL, screen, &(SDL_Rect){x,y,0});
+				{ SDL_Rect pill = {x,y,0}; GFX_blitPillLight(ASSET_WHITE_PILL, screen, &pill); }
 				blitButton("Y", screen, PAD_isPressed(BTN_Y), x+o, y+o,0);
 				
 				x += SCALE1(PILL_SIZE*2);
-				GFX_blitPillLight(ASSET_WHITE_PILL, screen, &(SDL_Rect){x,y,0});
+				{ SDL_Rect pill = {x,y,0}; GFX_blitPillLight(ASSET_WHITE_PILL, screen, &pill); }
 				blitButton("A", screen, PAD_isPressed(BTN_A), x+o, y+o,0);
 			}
 			
@@ -225,7 +233,7 @@ int main(int argc , char* argv[]) {
 				int y = oy + SCALE1(PILL_SIZE);
 				int w = SCALE1(42);
 				
-				GFX_blitPillLight(ASSET_WHITE_PILL, screen, &(SDL_Rect){x,y,SCALE1(98)});
+				{ SDL_Rect pill = {x,y,SCALE1(98)}; GFX_blitPillLight(ASSET_WHITE_PILL, screen, &pill); }
 				x += SCALE1(BUTTON_MARGIN);
 				y += SCALE1(BUTTON_MARGIN);
 				blitButton("VOL. -", screen, PAD_isPressed(BTN_MINUS), x, y, w);
@@ -243,7 +251,7 @@ int main(int argc , char* argv[]) {
 				int y = oy + SCALE1(PILL_SIZE * 3);
 				int w = SCALE1(bw);
 				
-				GFX_blitPillLight(ASSET_WHITE_PILL, screen, &(SDL_Rect){x,y,SCALE1(pw)});
+				{ SDL_Rect pill = {x,y,SCALE1(pw)}; GFX_blitPillLight(ASSET_WHITE_PILL, screen, &pill); }
 				x += SCALE1(BUTTON_MARGIN);
 				y += SCALE1(BUTTON_MARGIN);
 				if (has_menu) {
@@ -262,7 +270,7 @@ int main(int argc , char* argv[]) {
 				int y = oy + SCALE1(PILL_SIZE * 5);
 				int w = SCALE1(42);
 				
-				GFX_blitPillLight(ASSET_WHITE_PILL, screen, &(SDL_Rect){x,y,SCALE1(130)});
+				{ SDL_Rect pill = {x,y,SCALE1(130)}; GFX_blitPillLight(ASSET_WHITE_PILL, screen, &pill); }
 				x += SCALE1(BUTTON_MARGIN);
 				y += SCALE1(BUTTON_MARGIN);
 				blitButton("SELECT", screen, PAD_isPressed(BTN_SELECT), x, y, w);
@@ -271,7 +279,8 @@ int main(int argc , char* argv[]) {
 				x += w + SCALE1(BUTTON_MARGIN);
 				
 				SDL_Surface* text = TTF_RenderUTF8_Blended(GFX_getFonts()->tiny, "QUIT", uintToColour(THEME_COLOR6_255));
-				SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){x,y+(SCALE1(BUTTON_SIZE)-text->h)/2});
+				SDL_Rect quit_dst = {x,y+(SCALE1(BUTTON_SIZE)-text->h)/2};
+				SDL_BlitSurface(text, NULL, screen, &quit_dst);
 				SDL_FreeSurface(text);
 			}
 			

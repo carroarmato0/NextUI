@@ -1,10 +1,12 @@
-#include <stdbool.h>
+// Project + libmsettings C headers declare C-linkage symbols defined in the
+// still-C common/ and libmsettings translation units; include as extern "C".
+extern "C" {
 #include <msettings.h>
-
 #include "sdl.h"
 #include "defines.h"
 #include "api.h"
 #include "utils.h"
+}
 
 
 #define NUM_OPTIONS 4
@@ -307,8 +309,10 @@ int main(int argc, char *argv[])
 
             if (show_setting) GFX_blitHardwareHints(screen, show_setting);
 
-            GFX_blitButtonGroup((char*[]){ "B","BACK", NULL }, 1, screen, 1);
-            GFX_blitButtonGroup((char*[]){ "L/R","Select light", NULL }, 0, screen, 0);
+            const char* hints_back[] = { "B","BACK", NULL };
+            GFX_blitButtonGroup((char**)hints_back, 1, screen, 1);
+            const char* hints_light[] = { "L/R","Select light", NULL };
+            GFX_blitButtonGroup((char**)hints_light, 0, screen, 0);
 
 
             int max_width = screen->w - SCALE1(PADDING * 2) - ow;
@@ -322,8 +326,11 @@ int main(int argc, char *argv[])
 
             SDL_Surface *text;
             text = TTF_RenderUTF8_Blended(GFX_getFonts()->medium, title, COLOR_WHITE);
-            GFX_blitPill(ASSET_BLACK_PILL, screen, &(SDL_Rect){SCALE1(PADDING), SCALE1(PADDING), max_width, SCALE1(PILL_SIZE)});
-            SDL_BlitSurface(text, &(SDL_Rect){0, 0, max_width - SCALE1(BUTTON_PADDING * 2), text->h}, screen, &(SDL_Rect){SCALE1(PADDING + BUTTON_PADDING), SCALE1(PADDING + 4)});
+            SDL_Rect title_pill = {SCALE1(PADDING), SCALE1(PADDING), max_width, SCALE1(PILL_SIZE)};
+            GFX_blitPill(ASSET_BLACK_PILL, screen, &title_pill);
+            SDL_Rect title_src = {0, 0, max_width - SCALE1(BUTTON_PADDING * 2), text->h};
+            SDL_Rect title_dst = {SCALE1(PADDING + BUTTON_PADDING), SCALE1(PADDING + 4)};
+            SDL_BlitSurface(text, &title_src, screen, &title_dst);
             SDL_FreeSurface(text);
 
             // Display settings
@@ -339,7 +346,7 @@ int main(int argc, char *argv[])
             }
             int settings_values[5] = {
                 lightsDefault[selected_light].effect,
-                lightsDefault[selected_light].color1,
+                (int)lightsDefault[selected_light].color1, // 0xRRGGBB fits in int; explicit narrowing
                 lightsDefault[selected_light].speed,
                 lightsDefault[selected_light].brightness,
                 lightsDefault[selected_light].inbrightness
@@ -357,37 +364,38 @@ int main(int argc, char *argv[])
                     snprintf(setting_text, sizeof(setting_text), "%s: %s", settings_labels[j], selected_light == 3 ? lr_effect_names[settings_values[j] - 1] : selected_light == 2 ? topbar_effect_names[settings_values[j] - 1] : effect_names[settings_values[j] - 1]);
                     SDL_Surface *text = TTF_RenderUTF8_Blended(GFX_getFonts()->medium, setting_text, current_color);
                     int text_width = text->w + SCALE1(BUTTON_PADDING * 2);
-                    GFX_blitPill(selected ? ASSET_WHITE_PILL : ASSET_BLACK_PILL, screen,
-                                    &(SDL_Rect){SCALE1(PADDING), y, text_width, SCALE1(PILL_SIZE)});
-                    SDL_BlitSurface(text, 
-                        &(SDL_Rect){0, 0, text->w, text->h}, screen, 
-                        &(SDL_Rect){SCALE1(PADDING + BUTTON_PADDING), y + SCALE1(4)});
+                    SDL_Rect pill = {SCALE1(PADDING), y, text_width, SCALE1(PILL_SIZE)};
+                    GFX_blitPill(selected ? ASSET_WHITE_PILL : ASSET_BLACK_PILL, screen, &pill);
+                    SDL_Rect blit_src = {0, 0, text->w, text->h};
+                    SDL_Rect blit_dst = {SCALE1(PADDING + BUTTON_PADDING), y + SCALE1(4)};
+                    SDL_BlitSurface(text, &blit_src, screen, &blit_dst);
                     SDL_FreeSurface(text);
                 } else if (j == 1) { // Display color as hex code
                     snprintf(setting_text, sizeof(setting_text), "%s", settings_labels[j]);
                     SDL_Surface *text = TTF_RenderUTF8_Blended(GFX_getFonts()->medium, setting_text, current_color);
                     int text_width = text->w + SCALE1(BUTTON_PADDING * 2);
-                    GFX_blitPill(selected ? ASSET_WHITE_PILL : ASSET_BLACK_PILL, screen, 
-                        &(SDL_Rect){SCALE1(PADDING), y, text_width + SCALE1(BUTTON_MARGIN + BUTTON_SIZE), SCALE1(PILL_SIZE)});
-                    SDL_BlitSurface(text, 
-                        &(SDL_Rect){0, 0, text->w, text->h}, screen, 
-                        &(SDL_Rect){SCALE1(PADDING + BUTTON_PADDING), y + SCALE1(4)});
+                    SDL_Rect pill = {SCALE1(PADDING), y, text_width + SCALE1(BUTTON_MARGIN + BUTTON_SIZE), SCALE1(PILL_SIZE)};
+                    GFX_blitPill(selected ? ASSET_WHITE_PILL : ASSET_BLACK_PILL, screen, &pill);
+                    SDL_Rect blit_src = {0, 0, text->w, text->h};
+                    SDL_Rect blit_dst = {SCALE1(PADDING + BUTTON_PADDING), y + SCALE1(4)};
+                    SDL_BlitSurface(text, &blit_src, screen, &blit_dst);
                     SDL_FreeSurface(text);
 
                     // color1 is stored as 0xRRGGBB; GFX_blitAssetColor expects 0xRRGGBBAA
-                    GFX_blitAssetColor(ASSET_BUTTON, NULL, screen, &(SDL_Rect){
+                    SDL_Rect color_dst = {
                         SCALE1(PADDING) + text_width,
                         y + SCALE1(BUTTON_MARGIN)
-                    }, ((uint32_t)settings_values[j] << 8) | 0xFF);
+                    };
+                    GFX_blitAssetColor(ASSET_BUTTON, NULL, screen, &color_dst, ((uint32_t)settings_values[j] << 8) | 0xFF);
                 } else  {
                     snprintf(setting_text, sizeof(setting_text), "%s: %d", settings_labels[j], settings_values[j]);
                     SDL_Surface *text = TTF_RenderUTF8_Blended(GFX_getFonts()->medium, setting_text, current_color);
                     int text_width = text->w + SCALE1(BUTTON_PADDING * 2);
-                    GFX_blitPill(selected ? ASSET_WHITE_PILL : ASSET_BLACK_PILL, screen, 
-                        &(SDL_Rect){SCALE1(PADDING), y, text_width, SCALE1(PILL_SIZE)});
-                    SDL_BlitSurface(text, 
-                        &(SDL_Rect){0, 0, text->w, text->h}, screen, 
-                        &(SDL_Rect){SCALE1(PADDING + BUTTON_PADDING), y + SCALE1(4)});
+                    SDL_Rect pill = {SCALE1(PADDING), y, text_width, SCALE1(PILL_SIZE)};
+                    GFX_blitPill(selected ? ASSET_WHITE_PILL : ASSET_BLACK_PILL, screen, &pill);
+                    SDL_Rect blit_src = {0, 0, text->w, text->h};
+                    SDL_Rect blit_dst = {SCALE1(PADDING + BUTTON_PADDING), y + SCALE1(4)};
+                    SDL_BlitSurface(text, &blit_src, screen, &blit_dst);
                     SDL_FreeSurface(text);
                 }
             }
