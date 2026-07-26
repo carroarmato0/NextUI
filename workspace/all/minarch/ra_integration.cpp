@@ -1,6 +1,12 @@
 #define RA_LOG_PREFIX "RA"
-#include "ra_log.h"
 
+// Project C headers declare C-linkage symbols (config, http, api, notification,
+// the RA helpers, …) defined in the still-C common translation units. Include
+// them as extern "C" so this C++ unit links against the unmangled names.
+// (Same pattern as ma_environment.cpp / ma_saves.cpp.)
+#define RA_UTIL_NEED_SDL
+extern "C" {
+#include "ra_log.h"
 #include "ra_integration.h"
 #include "ra_consoles.h"
 #include "chd_reader.h"
@@ -12,10 +18,9 @@
 #include "ra_sync.h"
 #include "defines.h"
 #include "api.h"
-
-#define RA_UTIL_NEED_SDL
 #include "ra_util.h"
 #include "ra_event_queue.h"
+}
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -210,7 +215,10 @@ typedef struct {
 
 #define RA_RESPONSE_QUEUE_SIZE 16
 static RA_QueuedResponse ra_response_queue[RA_RESPONSE_QUEUE_SIZE];
-static volatile int ra_response_queue_count = 0;
+// Always accessed under ra_queue_mutex (except the pre-thread init), so the
+// lock — not a volatile qualifier — provides visibility/ordering. Plain int
+// also avoids C++20's deprecation of ++/-- on volatile-qualified types.
+static int ra_response_queue_count = 0;
 static int ra_response_queue_head = 0;  /* next slot to read  (main thread) */
 static int ra_response_queue_tail = 0;  /* next slot to write (worker threads) */
 static SDL_mutex* ra_queue_mutex = NULL;

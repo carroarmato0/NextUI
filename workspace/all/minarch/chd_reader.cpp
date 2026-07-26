@@ -1,17 +1,23 @@
 /**
- * chd_reader.c - CHD file reader for rcheevos hashing
- * 
+ * chd_reader.cpp - CHD file reader for rcheevos hashing
+ *
  * Provides CD reader callbacks for rcheevos to hash CHD disc images.
  */
 
 #include "chd_reader.h"
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-#include <ctype.h>
+#include <cstdlib>
+#include <cstring>
+#include <cstdio>
+#include <cctype>
 
+// libchdr is a C library. chd.h carries its own extern "C" guard; cdrom.h does
+// not, so wrap both to keep any function declarations at C linkage. Allocation
+// on this path stays malloc/free (non-throwing): these readers run inside the
+// rcheevos C hashing callbacks, where a C++ exception would be undefined.
+extern "C" {
 #include <libchdr/chd.h>
 #include <libchdr/cdrom.h>
+}
 
 /*****************************************************************************
  * Track info structure
