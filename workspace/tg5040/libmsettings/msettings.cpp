@@ -12,12 +12,89 @@
 #include <string.h>
 #include <tinyalsa/mixer.h>
 
-#include "msettings.h"
 #include "displaycal.h"
+// This TU implements libmsettings. Wrap its own header in extern "C" so the
+// definitions below keep C linkage -- the .so must export unmangled symbols to
+// stay ABI-compatible with every consumer (which includes msettings.h as C).
+extern "C" {
+#include "msettings.h"
+}
 
 ///////////////////////////////////////
 
-typedef struct SettingsV1 {
+// Legacy MinUI settings
+typedef struct SettingsV3 {
+	int version; // future proofing
+	int brightness;
+	int headphones;
+	int speaker;
+	int mute;
+	int unused[2];
+	int jack;
+} SettingsV3;
+
+// First NextUI settings format
+typedef struct SettingsV4 {
+	int version; // future proofing
+	int brightness;
+	int colortemperature; // 0-20
+	int headphones;
+	int speaker;
+	int mute;
+	int unused[2];
+	int jack; 
+} SettingsV4;
+
+// Second NextUI settings format
+typedef struct SettingsV5 {
+	int version; // future proofing
+	int brightness;
+	int colortemperature;
+	int headphones;
+	int speaker;
+	int mute;
+	int unused[2]; // for future use
+	// NOTE: doesn't really need to be persisted but still needs to be shared
+	int jack; 
+} SettingsV5;
+
+// Third NextUI settings format
+typedef struct SettingsV6 {
+	int version; // future proofing
+	int brightness;
+	int colortemperature;
+	int headphones;
+	int speaker;
+	int mute;
+	int contrast;
+	int saturation;
+	int exposure;
+	int unused[2]; // for future use
+	// NOTE: doesn't really need to be persisted but still needs to be shared
+	int jack; 
+} SettingsV6;
+
+typedef struct SettingsV7 {
+	int version; // future proofing
+	int brightness;
+	int colortemperature;
+	int headphones;
+	int speaker;
+	int mute;
+	int contrast;
+	int saturation;
+	int exposure;
+	int mutedbrightness;
+	int mutedcolortemperature;
+	int mutedcontrast;
+	int mutedsaturation;
+	int mutedexposure;
+	int unused[2]; // for future use
+	// NOTE: doesn't really need to be persisted but still needs to be shared
+	int jack; 
+} SettingsV7;
+
+typedef struct SettingsV8 {
 	int version; // future proofing
 	int brightness;
 	int colortemperature;
@@ -33,6 +110,60 @@ typedef struct SettingsV1 {
 	int toggled_saturation;
 	int toggled_exposure;
 	int toggled_volume;
+	int unused[2]; // for future use
+	// NOTE: doesn't really need to be persisted but still needs to be shared
+	int jack; 
+} SettingsV8;
+
+typedef struct SettingsV9 {
+	int version; // future proofing
+	int brightness;
+	int colortemperature;
+	int headphones;
+	int speaker;
+	int mute;
+	int contrast;
+	int saturation;
+	int exposure;
+	int toggled_brightness;
+	int toggled_colortemperature;
+	int toggled_contrast;
+	int toggled_saturation;
+	int toggled_exposure;
+	int toggled_volume;
+	int disable_dpad_on_mute;
+	int emulate_joystick_on_mute;
+	int turbo_a;
+	int turbo_b;
+	int turbo_x;
+	int turbo_y;
+	int turbo_l1;
+	int turbo_l2;
+	int turbo_r1;
+	int turbo_r2;
+	int unused[2]; // for future use
+	// NOTE: doesn't really need to be persisted but still needs to be shared
+	int jack; 
+} SettingsV9;
+
+typedef struct SettingsV10 {
+	int version; // future proofing
+	int brightness;
+	int colortemperature;
+	int headphones;
+	int speaker;
+	int mute;
+	int contrast;
+	int saturation;
+	int exposure;
+	int toggled_brightness;
+	int toggled_colortemperature;
+	int toggled_contrast;
+	int toggled_saturation;
+	int toggled_exposure;
+	int toggled_volume;
+	int disable_dpad_on_mute;
+	int emulate_joystick_on_mute;
 	int turbo_a;
 	int turbo_b;
 	int turbo_x;
@@ -45,10 +176,9 @@ typedef struct SettingsV1 {
 	// NOTE: doesn't really need to be persisted but still needs to be shared
 	int jack; 
 	int audiosink; // was bluetooth true/false before
-	int fanSpeed; // 0-100, -1 for auto
-} SettingsV1;
+} SettingsV10;
 
-typedef struct SettingsV2 {
+typedef struct SettingsV11 {
 	int version; // future proofing
 	int brightness;
 	int colortemperature;
@@ -64,6 +194,8 @@ typedef struct SettingsV2 {
 	int toggled_saturation;
 	int toggled_exposure;
 	int toggled_volume;
+	int disable_dpad_on_mute;
+	int emulate_joystick_on_mute;
 	int turbo_a;
 	int turbo_b;
 	int turbo_x;
@@ -76,17 +208,16 @@ typedef struct SettingsV2 {
 	// NOTE: doesn't really need to be persisted but still needs to be shared
 	int jack;
 	int audiosink; // was bluetooth true/false before
-	int fanSpeed; // 0-100, -1 for auto
 	int displaycal_enabled;
 	int displaycal_red_gain;
 	int displaycal_green_gain;
 	int displaycal_blue_gain;
-} SettingsV2;
+} SettingsV11;
 
 // When incrementing SETTINGS_VERSION, update the Settings typedef and add
 // backwards compatibility to InitSettings!
-#define SETTINGS_VERSION 2
-typedef SettingsV2 Settings;
+#define SETTINGS_VERSION 11
+typedef SettingsV11 Settings;
 static Settings DefaultSettings = {
 	.version = SETTINGS_VERSION,
 	.brightness = SETTINGS_DEFAULT_BRIGHTNESS,
@@ -103,6 +234,8 @@ static Settings DefaultSettings = {
 	.toggled_saturation = SETTINGS_DEFAULT_MUTE_NO_CHANGE,
 	.toggled_exposure = SETTINGS_DEFAULT_MUTE_NO_CHANGE,
 	.toggled_volume = 0, // mute is default
+	.disable_dpad_on_mute = 0,
+	.emulate_joystick_on_mute = 0,
 	.turbo_a = 0,
 	.turbo_b = 0,
 	.turbo_x = 0,
@@ -113,7 +246,6 @@ static Settings DefaultSettings = {
 	.turbo_r2 = 0,
 	.jack = 0,
 	.audiosink = AUDIO_SINK_DEFAULT,
-	.fanSpeed = SETTINGS_DEFAULT_FAN_SPEED,
 	.displaycal_enabled = DISPLAYCAL_DEFAULT_ENABLED,
 	.displaycal_red_gain = DISPLAYCAL_DEFAULT_RED_GAIN,
 	.displaycal_green_gain = DISPLAYCAL_DEFAULT_GREEN_GAIN,
@@ -133,7 +265,6 @@ int scaleContrast(int);
 int scaleSaturation(int);
 int scaleExposure(int);
 int scaleVolume(int);
-int scaleFanSpeed(int);
 
 void disableDpad(int);
 void emulateJoystick(int);
@@ -188,21 +319,44 @@ int peekVersion(const char *filename) {
 	return version;
 }
 
+static int is_brick = 0;
+static int is_brickpro = 0;
+static int is_smartpro = 0;
+
+static void applyDisplayCalDefaultsForDevice(Settings *target) {
+	DisplayCalDefaults defaults = DisplayCal_getDefaultSettings(
+		  is_brick ? DISPLAYCAL_PRESET_BRICK
+		: is_brickpro ? DISPLAYCAL_PRESET_BRICK
+		: is_smartpro ? DISPLAYCAL_PRESET_SMARTPRO 
+		: DISPLAYCAL_PRESET_DEFAULT);
+	target->displaycal_enabled = defaults.enabled;
+	target->displaycal_red_gain = defaults.red_gain;
+	target->displaycal_green_gain = defaults.green_gain;
+	target->displaycal_blue_gain = defaults.blue_gain;
+}
+
 void InitSettings(void) {	
+	char* device = getenv("DEVICE");
+	is_brick = exactMatch("brick", device);
+	is_brickpro = exactMatch("brickpro", device);
+	is_smartpro = exactMatch("smartpro", device);
+
+	applyDisplayCalDefaultsForDevice(&DefaultSettings);
+	
 	sprintf(SettingsPath, "%s/msettings.bin", getenv("USERDATA_PATH"));
 	
 	shm_fd = shm_open(SHM_KEY, O_RDWR | O_CREAT | O_EXCL, 0644); // see if it exists
 	if (shm_fd==-1 && errno==EEXIST) { // already exists
 		// puts("Settings client");
 		shm_fd = shm_open(SHM_KEY, O_RDWR, 0644);
-		settings = mmap(NULL, shm_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+		settings = (Settings*)mmap(NULL, shm_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
 	}
 	else { // host
 		// puts("Settings host"); // keymon
 		is_host = 1;
 		// we created it so set initial size and populate
 		ftruncate(shm_fd, shm_size);
-		settings = mmap(NULL, shm_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+		settings = (Settings*)mmap(NULL, shm_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
 
 		// peek the first int from fd, it's the version
 		int version = peekVersion(SettingsPath);
@@ -217,12 +371,153 @@ void InitSettings(void) {
 					memcpy(settings, &DefaultSettings, shm_size);
 
 					// overwrite with migrated data
-					if(version == 1) {
-						SettingsV1 old;
-						read(fd, &old, sizeof(SettingsV1));
+					if(version==10) {
+						printf("Found settings v10.\n");
+						SettingsV10 old;
+						read(fd, &old, sizeof(SettingsV10));
 
-						memcpy(settings, &old, sizeof(SettingsV1));
+						memcpy(settings, &old, sizeof(SettingsV10));
 						settings->version = SETTINGS_VERSION;
+					}
+					else if(version==9) {
+						printf("Found settings v9.\n");
+						SettingsV9 old;
+						read(fd, &old, sizeof(SettingsV9));
+
+						settings-> disable_dpad_on_mute = old.disable_dpad_on_mute;
+						settings-> emulate_joystick_on_mute = old.emulate_joystick_on_mute;
+						settings-> turbo_a = old.turbo_a;
+						settings-> turbo_b = old.turbo_b;
+						settings-> turbo_x = old.turbo_x;
+						settings-> turbo_y = old.turbo_y;
+						settings-> turbo_l1 = old.turbo_l1;
+						settings-> turbo_l2 = old.turbo_l2;
+						settings-> turbo_r1 = old.turbo_r1;
+						settings-> turbo_r2 = old.turbo_r2;
+
+						settings->toggled_volume = old.toggled_volume;
+
+						settings->toggled_brightness = old.toggled_brightness;
+						settings->toggled_colortemperature = old.toggled_colortemperature;
+						settings->toggled_contrast = old.toggled_contrast;
+						settings->toggled_exposure = old.toggled_exposure;
+						settings->toggled_saturation = old.toggled_saturation;
+
+						settings->saturation = old.saturation;
+						settings->contrast = old.contrast;
+						settings->exposure = old.exposure;
+
+						settings->colortemperature = old.colortemperature;
+
+						settings->brightness = old.brightness;
+						settings->headphones = old.headphones;
+						settings->speaker = old.speaker;
+						settings->mute = old.mute;
+						settings->jack = old.jack;
+					}
+					else if(version==8) {
+						printf("Found settings v8.\n");
+						SettingsV8 old;
+						read(fd, &old, sizeof(SettingsV8));
+
+						settings->toggled_volume = old.toggled_volume;
+
+						settings->toggled_brightness = old.toggled_brightness;
+						settings->toggled_colortemperature = old.toggled_colortemperature;
+						settings->toggled_contrast = old.toggled_contrast;
+						settings->toggled_exposure = old.toggled_exposure;
+						settings->toggled_saturation = old.toggled_saturation;
+
+						settings->saturation = old.saturation;
+						settings->contrast = old.contrast;
+						settings->exposure = old.exposure;
+
+						settings->colortemperature = old.colortemperature;
+
+						settings->brightness = old.brightness;
+						settings->headphones = old.headphones;
+						settings->speaker = old.speaker;
+						settings->mute = old.mute;
+						settings->jack = old.jack;
+					}
+					else if(version==7) {
+						printf("Found settings v7.\n");
+						SettingsV7 old;
+						read(fd, &old, sizeof(SettingsV7));
+
+						// muted* -> toggled*
+						settings->toggled_brightness = old.mutedbrightness;
+						settings->toggled_colortemperature = old.mutedcolortemperature;
+						settings->toggled_contrast = old.mutedcontrast;
+						settings->toggled_exposure = old.mutedexposure;
+						settings->toggled_saturation = old.mutedsaturation;
+
+						settings->saturation = old.saturation;
+						settings->contrast = old.contrast;
+						settings->exposure = old.exposure;
+
+						settings->colortemperature = old.colortemperature;
+
+						settings->brightness = old.brightness;
+						settings->headphones = old.headphones;
+						settings->speaker = old.speaker;
+						settings->mute = old.mute;
+						settings->jack = old.jack;
+					}
+					else if(version==6) {
+						printf("Found settings v6.\n");
+						SettingsV6 old;
+						read(fd, &old, sizeof(SettingsV6));
+
+						settings->saturation = old.saturation;
+						settings->contrast = old.contrast;
+						settings->exposure = old.exposure;
+
+						settings->colortemperature = old.colortemperature;
+
+						settings->brightness = old.brightness;
+						settings->headphones = old.headphones;
+						settings->speaker = old.speaker;
+						settings->mute = old.mute;
+						settings->jack = old.jack;
+					}
+					else if(version==5) {
+						printf("Found settings v5.\n");
+						SettingsV5 old;
+						read(fd, &old, sizeof(SettingsV5));
+
+						settings->colortemperature = old.colortemperature;
+
+						settings->brightness = old.brightness;
+						settings->headphones = old.headphones;
+						settings->speaker = old.speaker;
+						settings->mute = old.mute;
+						settings->jack = old.jack;
+					}
+					else if(version==4) {
+						printf("Found settings v4.\n");
+						SettingsV4 old;
+						read(fd, &old, sizeof(SettingsV4));
+
+						// colortemp was 0-20 here
+						settings->colortemperature = old.colortemperature * 2;
+
+						settings->brightness = old.brightness;
+						settings->headphones = old.headphones;
+						settings->speaker = old.speaker;
+						settings->mute = old.mute;
+						settings->jack = old.jack;
+					}
+					else if(version==3) {
+						printf("Found settings v3.\n");
+						SettingsV3 old;
+						read(fd, &old, sizeof(SettingsV3));
+
+						settings->brightness = old.brightness;
+						settings->headphones = old.headphones;
+						settings->speaker = old.speaker;
+						settings->mute = old.mute;
+						settings->jack = old.jack;
 					}
 					else {
 						printf("Found unsupported settings version: %i.\n", version);
@@ -248,22 +543,15 @@ void InitSettings(void) {
 	// printf("brightness: %i\nspeaker: %i \n", settings->brightness, settings->speaker);
 	system("amixer");
 
-	// make sure all these volume-influencing controls are set to defaults, we will set volume with 'DAC Volume'
-	if(GetAudioSink() == AUDIO_SINK_DEFAULT) {	
-		system("amixer sset 'SPK' on");
-		system("amixer sset 'HPOUT' on");
-		system("amixer sset 'LINEOUTL' on");
-		system("amixer sset 'LINEOUTR' on");
-		system("amixer sset 'DACL DACR Swap' On");
-		//system("amixer sset 'HPOUT Gain' 7"); // resets itself on boot to 7, we dont necessarily need to modify
-		//system("amixer sset 'LINEOUT Gain' 19"); // resets itself on boot to 19, we dont necessarily need to modify
+	// make sure all these volume-influencing controls are set to defaults, we will set volume with 'digital volume'
+	if(GetAudioSink() == AUDIO_SINK_DEFAULT) {
+		system("amixer sset 'Headphone' 0");	  // 100%
+		system("amixer sset 'digital volume' 0"); // 100%
+		system("amixer sset 'DAC Swap' Off"); // Fix L/R channels
 	}
 
 	// This will implicitly update all other settings based on FN switch state
-	settings->displaycal_enabled = 0;
 	SetMute(settings->mute);
-
-	SetFanSpeed(settings->fanSpeed);
 }
 int InitializedSettings(void) {
 	return (settings != NULL);
@@ -282,7 +570,8 @@ static inline void SaveSettings(void) {
 }
 
 static inline void applyDisplayCalSettings(void) {
-	// tg5050 does not expose /dev/disp, so display calibration is unsupported.
+	if (settings->displaycal_enabled)
+		SetRawDisplayCal(1, settings->displaycal_red_gain, settings->displaycal_green_gain, settings->displaycal_blue_gain);
 }
 
 ///////// Getters exposed in public API
@@ -387,11 +676,11 @@ int GetMutedVolume(void)
 }
 int GetMuteDisablesDpad(void)
 {
-	return 0;
+	return settings->disable_dpad_on_mute;
 }
 int GetMuteEmulatesJoystick(void)
 {
-	return 0;
+	return settings->emulate_joystick_on_mute;
 }
 int GetMuteTurboA(void)
 {
@@ -424,9 +713,6 @@ int GetMuteTurboR1(void)
 int GetMuteTurboR2(void)
 {
 	return settings->turbo_r2;
-}
-int GetFanSpeed(void) {
-	return settings->fanSpeed;
 }
 
 ///////// Setters exposed in public API
@@ -472,8 +758,15 @@ void SetExposure(int value){
 	SaveSettings();
 }
 void SetDisplayCalEnabled(int is_enabled) {
-	(void)is_enabled;
-	settings->displaycal_enabled = 0;
+	int was_enabled = settings->displaycal_enabled;
+	is_enabled = (is_enabled != 0);
+	settings->displaycal_enabled = is_enabled;
+
+	// Disabling only needs hardware writes when we are turning an active LUT off.
+	if (is_enabled)
+		applyDisplayCalSettings();
+	else if (was_enabled)
+		SetRawDisplayCal(0, settings->displaycal_red_gain, settings->displaycal_green_gain, settings->displaycal_blue_gain);
 	SaveSettings();
 }
 void SetDisplayCalRedGain(int value) {
@@ -494,7 +787,8 @@ void SetDisplayCalBlueGain(int value) {
 	applyDisplayCalSettings();
 	SaveSettings();
 }
-void SetVolume(int value) { // 0-20
+void SetVolume(int value) // 0-20
+{
 	if (settings->mute && GetMutedVolume() != SETTINGS_DEFAULT_MUTE_NO_CHANGE)
 		return SetRawVolume(scaleVolume(GetMutedVolume()));
 	
@@ -533,6 +827,10 @@ void SetMute(int value) {
 	SetExposure(GetExposure());
 	applyDisplayCalSettings();
 
+	if(is_brick && GetMuteDisablesDpad())
+		disableDpad(settings->mute);
+	if(is_brick && GetMuteEmulatesJoystick())
+		emulateJoystick(settings->mute);
 	if(GetMuteTurboA())
 		turboA(settings->mute);
 	if(GetMuteTurboB())
@@ -589,11 +887,13 @@ void SetMutedVolume(int value)
 
 void SetMuteDisablesDpad(int value)
 {
-	//
+	settings->disable_dpad_on_mute = value;
+	SaveSettings();
 }
 void SetMuteEmulatesJoystick(int value)
 {
-	//
+	settings->emulate_joystick_on_mute = value;
+	SaveSettings();
 }
 
 void SetMuteTurboA(int value)
@@ -641,12 +941,6 @@ void SetMuteTurboR1(int value)
 void SetMuteTurboR2(int value)
 {
 	settings->turbo_r2 = value;
-	SaveSettings();
-}
-
-void SetFanSpeed(int value) {
-	settings->fanSpeed = value;
-	SetRawFanSpeed(scaleFanSpeed(value));
 	SaveSettings();
 }
 
@@ -760,15 +1054,57 @@ void turboR2(int value) {
 ///////// Platform specific scaling
 
 int scaleVolume(int value) {
-    if (value <= 0) return 0;
-    if (value >= 20) return 100;
-    return 5 * value;
+	return value * 5; // scale 0-20 to 0-100
 }
 
 int scaleBrightness(int value) {
-	if (value <= 0) return 10;
-    if (value >= 10) return 220;
-    return 10 + 21 * value;
+	int raw;
+	if (is_brick) {
+		switch (value) {
+			case 0: raw=1; break; 		// 0
+			case 1: raw=8; break; 		// 8
+			case 2: raw=16; break; 		// 8
+			case 3: raw=32; break; 		// 16
+			case 4: raw=48; break;		// 16
+			case 5: raw=72; break;		// 24
+			case 6: raw=96; break;		// 24
+			case 7: raw=128; break;		// 32
+			case 8: raw=160; break;		// 32
+			case 9: raw=192; break;		// 32
+			case 10: raw=255; break;	// 64
+		}
+	}
+	else if (is_brickpro) {
+		switch (value) {
+			case 0: raw=1; break; 		// 0
+			case 1: raw=8; break; 		// 8
+			case 2: raw=16; break; 		// 8
+			case 3: raw=32; break; 		// 16
+			case 4: raw=48; break;		// 16
+			case 5: raw=72; break;		// 24
+			case 6: raw=96; break;		// 24
+			case 7: raw=128; break;		// 32
+			case 8: raw=160; break;		// 32
+			case 9: raw=192; break;		// 32
+			case 10: raw=255; break;	// 64
+		}
+	}
+	else {
+		switch (value) {
+			case 0: raw=4; break; 		//  0
+			case 1: raw=6; break; 		//  2
+			case 2: raw=10; break; 		//  4
+			case 3: raw=16; break; 		//  6
+			case 4: raw=32; break;		// 16
+			case 5: raw=48; break;		// 16
+			case 6: raw=64; break;		// 16
+			case 7: raw=96; break;		// 32
+			case 8: raw=128; break;		// 32
+			case 9: raw=192; break;		// 64
+			case 10: raw=255; break;	// 64
+		}
+	}
+	return raw;
 }
 int scaleColortemp(int value) {
 	int raw;
@@ -873,15 +1209,28 @@ int scaleExposure(int value) {
 	return raw;
 }
 
-int scaleFanSpeed(int value) {
-	if(value < -3) return -2; // auto medium
-	if(value > 100) return 100;
-	
-	// Mapping is done in fan control daemon, pass on percentage
-	return value;
-}
-
 ///////// Platform specific, unscaled accessors
+
+#define DISP_LCD_SET_BRIGHTNESS  0x102
+void SetRawBrightness(int val) { // 0 - 255
+	printf("SetRawBrightness(%i)\n", val); fflush(stdout);
+
+    int fd = open("/dev/disp", O_RDWR);
+	if (fd) {
+	    unsigned long param[4]={0,(unsigned long)val,0,0};
+		ioctl(fd, DISP_LCD_SET_BRIGHTNESS, &param);
+		close(fd);
+	}
+}
+void SetRawColortemp(int val) { // 0 - 255
+	printf("SetRawColortemp(%i)\n", val); fflush(stdout);
+
+	FILE *fd = fopen("/sys/class/disp/disp/attr/color_temperature", "w");
+	if (fd) {
+		fprintf(fd, "%i", val);
+		fclose(fd);
+	}
+}
 
 // Find the first A2DP playback volume control via amixer
 static int get_a2dp_simple_control_name(char *buf, size_t buflen) {
@@ -975,7 +1324,7 @@ void SetRawVolume(int val) { // in: 0-100
             snprintf(cmd, sizeof(cmd), "amixer sset \"%s\" -M %d%% &> /dev/null", ctl_name, val);
             system(cmd);
 			//printf("Set '%s' to %d%%\n", ctl_name, val); fflush(stdout);
-		}
+        }
     } 
 	else if (GetAudioSink() == AUDIO_SINK_USBDAC) {
 		// USB DAC path: grab the first card that is not called "audiocodec"
@@ -1012,7 +1361,7 @@ void SetRawVolume(int val) { // in: 0-100
 		mixer_close(mixer);
 	}
 	else {
-        // Speaker path: grab the card that is called "audiocodec"
+		// Speaker path: grab the card that is called "audiocodec"
 		int card_num = get_audiocodec_card_num();
 		if(card_num < 0) {
 			card_num = 0; // fallback to card 0 if we can't find it
@@ -1024,12 +1373,21 @@ void SetRawVolume(int val) { // in: 0-100
             return;
         }
 
-        struct mixer_ctl *digital = mixer_get_ctl_by_name(mixer, "DAC Volume");
+        struct mixer_ctl *digital = mixer_get_ctl_by_name(mixer, "digital volume");
         if (digital) {
-			mixer_ctl_set_percent(digital, 0, val);
-				//printf("Set 'digital volume' to %d%%\n", val); fflush(stdout);
+			mixer_ctl_set_percent(digital, 0, 100 - val); // reversed mapping
+			//printf("Set 'digital volume' to %d%%\n", val); fflush(stdout);
 		}
 		
+		// Digital volume does not quite go to 0, so also mute the DAC volume
+		struct mixer_ctl *dac     = mixer_get_ctl_by_name(mixer, "DAC volume");
+        if (dac) {
+            int dac_val = (val == 0 ? 0 : 160);
+            unsigned int num_values = mixer_ctl_get_num_values(dac);
+            for (unsigned int i = 0; i < num_values; i++)
+                mixer_ctl_set_value(dac, i, dac_val);
+			//printf("Set 'DAC volume' to %d\n", dac_val); fflush(stdout);
+		}
 		mixer_close(mixer);
 
 		// Really, actually, finally turn the speaker off - including the hissing
@@ -1037,20 +1395,10 @@ void SetRawVolume(int val) { // in: 0-100
 	}
 }
 
-void SetRawBrightness(int val) { // 0 - 255 - stock clamps to 10-220
-	printf("SetRawBrightness(%i)\n", val); fflush(stdout);
-
-    FILE *fd = fopen("/sys/class/backlight/backlight0/brightness", "w");
-	if (fd) {
-	    fprintf(fd, "%i", val);
-		fclose(fd);
-	}
-}
-
 void SetRawContrast(int val){
 	printf("SetRawContrast(%i)\n", val); fflush(stdout);
 
-	FILE *fd = fopen("/sys/devices/virtual/disp/disp/attr/enhance_contrast", "w");
+	FILE *fd = fopen("/sys/class/disp/disp/attr/enhance_contrast", "w");
 	if (fd) {
 		fprintf(fd, "%i", val);
 		fclose(fd);
@@ -1059,7 +1407,7 @@ void SetRawContrast(int val){
 void SetRawSaturation(int val){
 	printf("SetRawSaturation(%i)\n", val); fflush(stdout);
 
-	FILE *fd = fopen("/sys/devices/virtual/disp/disp/attr/enhance_saturation", "w");
+	FILE *fd = fopen("/sys/class/disp/disp/attr/enhance_saturation", "w");
 	if (fd) {
 		fprintf(fd, "%i", val);
 		fclose(fd);
@@ -1068,61 +1416,21 @@ void SetRawSaturation(int val){
 void SetRawExposure(int val){
 	printf("SetRawExposure(%i)\n", val); fflush(stdout);
 
-	FILE *fd = fopen("/sys/devices/virtual/disp/disp/attr/enhance_bright", "w");
+	FILE *fd = fopen("/sys/class/disp/disp/attr/enhance_bright", "w");
 	if (fd) {
 		fprintf(fd, "%i", val);
 		fclose(fd);
 	}
 }
-
 void SetRawDisplayCal(int enabled, int red_gain, int green_gain, int blue_gain) {
-	(void)enabled;
-	(void)red_gain;
-	(void)green_gain;
-	(void)blue_gain;
-	printf("SetRawDisplayCal unsupported on tg5050\n"); fflush(stdout);
-}
+	printf("SetRawDisplayCal(%i,%i,%i,%i)\n", enabled, red_gain, green_gain, blue_gain); fflush(stdout);
 
-void SetRawColortemp(int val) { // 0 - 255
-	printf("SetRawColortemp(%i)\n", val); fflush(stdout);
-
-	FILE *fd = fopen("/sys/devices/virtual/disp/disp/attr/color_temperature", "w");
-	if (fd) {
-		fprintf(fd, "%i", val);
-		fclose(fd);
-	}
-}
-
-#define FAN_SPEED_CONTROL "/mnt/SDCARD/.system/tg5050/bin/fancontrol"
-#define FAN_LOCK_FILE "/var/run/fan-control.lock"
-
-void SetRawFanSpeed(int val) { // 0-31, -1/-2-3 for auto low/med/high
-	printf("SetRawFanSpeed(%i)\n", val); fflush(stdout);
-
-	// Kill any existing fancontrol process and wait for it to exit
-	system("killall fancontrol 2>/dev/null");
-	usleep(100000); // 100ms - give time for process to clean up
-	
-	// Clean up stale lock file just in case
-	unlink(FAN_LOCK_FILE);
-		
-	if(val == -1) { // auto quiet
-		system(FAN_SPEED_CONTROL " quiet &");
-	}
-	else if(val == -2) { // auto normal
-		system(FAN_SPEED_CONTROL " normal &");
-	}
-	else if(val == -3) { // auto performance
-		system(FAN_SPEED_CONTROL " performance &");
-	}
-	else if(val >= 0 && val <= 100) { // manual percentage
-		char cmd[128];
-		snprintf(cmd, sizeof(cmd), "%s %d &", FAN_SPEED_CONTROL, val);
-		system(cmd);
-	}
-	else {
-		// let fan control figure out a valid default behavior
-		system(FAN_SPEED_CONTROL " &");
-		return;
+	int ret = enabled
+		? DisplayCal_enableWithValues(red_gain, green_gain, blue_gain)
+		: DisplayCal_disable();
+	if (ret != 0) {
+		fprintf(stderr, "SetRawDisplayCal failed to %s display calibration: %i\n",
+			enabled ? "enable" : "disable", ret);
+		fflush(stderr);
 	}
 }
