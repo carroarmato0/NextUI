@@ -37,8 +37,8 @@ CXXSTD := $(shell printf 'int main(){return 0;}' | $(CXX) -std=gnu++20 -x c++ - 
 SYSROOT     := $(shell $(CC) --print-sysroot)
 
 INCDIR = -I. -I../common/ -I../../$(PLATFORM)/platform/
-# The shared common/ + platform units stay C; the library itself is C++20.
-CSOURCE = ../../$(PLATFORM)/platform/platform.c
+# The library itself is C++20 and pulls in only common/utils. (It used to also
+# compile the platform TU, but that object was never linked into the .so.)
 CXXSOURCE = $(TARGET).cpp ../common/utils.cpp
 
 CFLAGS  += $(OPT)
@@ -53,7 +53,6 @@ PRODUCT= build/$(PLATFORM)/lib$(TARGET).so
 
 build:
 	mkdir -p build/$(PLATFORM)
-	$(CC) -c -Werror -fpic $(CSOURCE) -Wl,--no-as-needed $(LDFLAGS) $(CFLAGS)
 	$(CXX) -c -Werror -fpic $(CXXSOURCE) $(CXXFLAGS)
 	$(CXX) -shared -o $(PRODUCT) "$(TARGET).o" "utils.o" $(LDFLAGS) -lstdc++
 	mkdir -p "$(PREFIX_LOCAL)/include"

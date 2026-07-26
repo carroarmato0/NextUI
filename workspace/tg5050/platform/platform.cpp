@@ -13,7 +13,11 @@
 #include <assert.h>
 #include <sched.h>
 
+// msettings.h is a C library header without extern "C" guards; wrap it so this
+// (now C++) unit resolves libmsettings' symbols with C linkage.
+extern "C" {
 #include <msettings.h>
+}
 
 #include "defines.h"
 #include "platform.h"

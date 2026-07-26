@@ -23,7 +23,7 @@ TARGET = battery
 INCDIR = -I. -I../common/ -I../../$(PLATFORM)/platform/
 # Shared common/ + platform stay C; the tool itself is C++20. Compile the C
 # units to objects, then compile the .cpp and link everything through g++.
-SOURCE = -c ../../$(PLATFORM)/platform/platform.c
+SOURCE = -c ../../$(PLATFORM)/platform/platform.cpp
 CXXSOURCE = $(TARGET).cpp ../common/utils.cpp ../common/config.cpp ../common/scaler.cpp ../common/api.cpp
 CXXSOURCE += build/$(PLATFORM)/platform.o
 
@@ -41,7 +41,7 @@ PRODUCT= build/$(PLATFORM)/$(TARGET).elf
 
 all: $(PREFIX_LOCAL)/include/batmondb.h
 	mkdir -p build/$(PLATFORM)
-	$(CC) $(SOURCE) $(CFLAGS) $(LDFLAGS)
+	$(CXX) $(SOURCE) $(CXXFLAGS) $(LDFLAGS)
 	mv platform.o build/$(PLATFORM)
 	$(CXX) $(CXXSOURCE) -o $(PRODUCT) $(CXXFLAGS) $(LDFLAGS) -lstdc++
 clean:
