@@ -47,5 +47,5 @@ all: $(PREFIX_LOCAL)/include/msettings.h
 clean:
 	rm -f $(PRODUCT)
 
-$(PREFIX_LOCAL)/include/msettings.h:
+$(PREFIX_LOCAL)/include/msettings.h: ../../$(PLATFORM)/libmsettings/msettings.h
 	cd ../../$(PLATFORM)/libmsettings && make

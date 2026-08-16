@@ -178,7 +178,7 @@ libchdr/CMakeLists.txt:
 $(PREFIX_LOCAL)/lib/libchdr.so:
 	cd libchdr && make build install PLATFORM=$(PLATFORM)
   
-$(PREFIX_LOCAL)/include/msettings.h:
+$(PREFIX_LOCAL)/include/msettings.h: ../../$(PLATFORM)/libmsettings/msettings.h
 	cd ../../$(PLATFORM)/libmsettings && make
 
 ### libsrm stuff

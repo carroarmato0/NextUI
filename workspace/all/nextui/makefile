@@ -71,5 +71,5 @@ $(OBJ_DIR):
 clean:
 	rm -f $(PRODUCT) $(OBJS) $(DEPS)
 
-$(PREFIX_LOCAL)/include/msettings.h:
+$(PREFIX_LOCAL)/include/msettings.h: ../../$(PLATFORM)/libmsettings/msettings.h
 	cd ../../$(PLATFORM)/libmsettings && make
