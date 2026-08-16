@@ -131,7 +131,8 @@ void Core_applyCheats(struct Cheats *cheats)
 	}
 
 	for (int i = 0; i < cheats->count; i++) {
-		if (!cheats->cheats[i].enabled)
+		// no code means it describes a memory write, applied by Cheats_apply
+		if (!cheats->cheats[i].enabled || !cheats->cheats[i].code)
 			continue;
 		const char* name = cheats->cheats[i].name ? cheats->cheats[i].name : "";
 		const char* code = cheats->cheats[i].code ? cheats->cheats[i].code : "";

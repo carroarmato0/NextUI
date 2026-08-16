@@ -67,6 +67,10 @@ static void limitFF(void) {
 }
 
 void run_frame(void) {
+	// Memory-write cheats have to be rewritten every frame; they're pure frontend
+	// RAM pokes, so they stay outside the core guard below.
+	Cheats_apply();
+
 	// Some cores (Mednafen/supafaust) DEFER cheat parsing to the emulation frame:
 	// retro_cheat_set only stores the code, and retro_run() parses it and throws a
 	// C++ exception (Mednafen::MDFN_Error) if it can't (e.g. Game Genie format on a
