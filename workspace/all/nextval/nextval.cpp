@@ -1,13 +1,9 @@
 #include <cstdio>
 #include <cstring>
 
-// Project C headers declare C-linkage symbols defined in the still-C common/
-// translation units; include them as extern "C".
-extern "C" {
 #include "defines.h"
 #include "api.h"
 #include "utils.h"
-}
 
 void printUsage()
 {

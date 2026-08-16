@@ -8,9 +8,6 @@
 #include <SDL2/SDL_image.h>
 #include <rcheevos/rc_client.h>
 
-// Project C headers declare C-linkage symbols defined in the still-C translation
-// units; include them as extern "C" so this C++ TU links the unmangled names.
-extern "C" {
 #include <msettings.h>
 #include "defines.h"
 #include "api.h"
@@ -26,7 +23,6 @@ extern "C" {
 #include "ma_video.h"
 #include "ma_frontend_opts.h"
 #include "ma_menu.h"
-}
 
 // g++ 8.3 rejects taking the address of an SDL_Rect compound literal in C++
 // ("taking address of temporary"), the scratch-rect idiom this file used

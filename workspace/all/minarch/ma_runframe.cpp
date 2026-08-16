@@ -1,10 +1,6 @@
 #include <SDL2/SDL.h>
 #include <exception>
 
-// Project C headers declare C-linkage symbols (core, rewind_st, ff, LOG_*, …)
-// defined in the still-C translation units. Include them as extern "C" so this
-// C++ unit links against the unmangled names. (Same pattern as ma_audio.cpp.)
-extern "C" {
 #include "ma_internal.h"
 #include "ma_rewind.h"
 #include "ma_input.h"
@@ -12,7 +8,6 @@ extern "C" {
 #include "ma_cheats.h"
 #include "ma_runframe.h"
 #include "notification.h"
-}
 
 // Recover after a core throws mid-emulation (see run_frame). The known trigger is
 // a cheat the core can't parse (Mednafen/supafaust defers Game-Genie parsing to

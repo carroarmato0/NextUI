@@ -16,7 +16,6 @@
 // unmangled names — and so this unit's own exports keep C linkage for the
 // still-C platform.c and any C consumers. (Same pattern as ra_integration.cpp.)
 #define RA_UTIL_NEED_SDL
-extern "C" {
 #include "ra_log.h"
 #include "ra_sync.h"
 #include "ra_offline.h"
@@ -25,7 +24,6 @@ extern "C" {
 #include "config.h"
 #include "defines.h"
 #include "api.h"
-}
 
 #include <stdio.h>
 #include <stdlib.h>

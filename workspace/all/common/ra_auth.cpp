@@ -1,13 +1,8 @@
-// Project C headers declare C-linkage symbols; include as extern "C" so this
-// C++ unit links against the unmangled names and its own exports keep C linkage
-// for the still-C platform.c. ra_auth.h / http.h carry their own guards.
-extern "C" {
 #include "ra_auth.h"
 #include "ra_util.h"
 #include "http.h"
 #include "config.h"
 #include "defines.h"
-}
 
 #include <stdio.h>
 #include <stdlib.h>

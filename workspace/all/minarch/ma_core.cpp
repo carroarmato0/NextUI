@@ -3,13 +3,6 @@
 #include <string.h>
 #include <exception>
 
-// Project C headers declare C-linkage symbols (core, cheatcodes, the retro_*
-// callbacks, LOG_*, …) defined in the still-C translation units. Include them
-// as extern "C" so this C++ unit links against the unmangled names. dlsym()
-// returns void*, which C++ won't implicitly convert to a function pointer, so
-// each core.* / set_*_callback assignment casts to the field's decltype.
-// (Same header pattern as ma_audio.cpp.)
-extern "C" {
 #include "ma_internal.h"
 #include "ma_saves.h"
 #include "ma_video.h"
@@ -17,7 +10,6 @@ extern "C" {
 #include "ma_input.h"
 #include "ma_cheats.h"
 #include "ma_core.h"
-}
 
 
 void Core_getName(char* in_name, char* out_name, size_t out_size) {

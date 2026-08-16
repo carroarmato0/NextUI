@@ -4,22 +4,19 @@
 #include <errno.h>
 #include <unistd.h>
 
-// Project C headers declare C-linkage symbols (core, game, LOG_*, the libretro
-// streams API, …) defined in the still-C translation units. Include them as
-// extern "C" so this C++ unit links against the unmangled names. (Same pattern
-// as ma_audio.cpp.)
-extern "C" {
 #include "ma_internal.h"
 #include "ra_integration.h"
 #include "notification.h"
+#include "ma_saves.h"
 
 #ifdef HAS_SRM
+// libretro-common is cloned by the makefile at build time, so guards added to
+// its headers would be wiped on a clean build. Wrap them at the include site.
+extern "C" {
 #include "streams/rzip_stream.h"
 #include "streams/file_stream.h"
-#endif
-
-#include "ma_saves.h"
 }
+#endif
 
 ///////////////////////////////////////
 

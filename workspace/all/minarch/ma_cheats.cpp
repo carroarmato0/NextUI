@@ -2,13 +2,8 @@
 #include <string.h>
 #include <glob.h>
 
-// Project C headers declare C-linkage symbols (cheatcodes, core, LOG_*, …)
-// defined in the still-C translation units. Include them as extern "C" so this
-// C++ unit links against the unmangled names. (Same pattern as ma_audio.cpp.)
-extern "C" {
 #include "ma_internal.h"
 #include "ma_cheats.h"
-}
 
 // based on picoarch/cheat.c
 

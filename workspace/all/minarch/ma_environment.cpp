@@ -1,15 +1,10 @@
 #include <string.h>
 
-// Project C headers declare C-linkage symbols (core, config, LOG_*, …) defined
-// in the still-C translation units. Include them as extern "C" so this C++ unit
-// links against the unmangled names. (Same pattern as ma_audio.cpp.)
-extern "C" {
 #include "ma_internal.h"
 #include "ma_options.h"
 #include "ma_input.h"
 #include "ra_integration.h"
 #include "ma_environment.h"
-}
 
 static bool set_rumble_state(unsigned port, enum retro_rumble_effect effect, uint16_t strength) {
 	// TODO: handle other args? not sure I can

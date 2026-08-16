@@ -1,5 +1,3 @@
-extern "C"
-{
 #include "msettings.h"
 
 #include "defines.h"
@@ -8,7 +6,6 @@ extern "C"
 #include "displaycal.h"
 #include "ra_auth.h"
 #include "ra_sync.h"
-}
 
 #include "core/surface.h"
 

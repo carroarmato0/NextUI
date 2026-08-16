@@ -8,14 +8,9 @@
 
 #include <sqlite3.h>
 
-// Project + libbatmondb C headers declare C-linkage symbols defined in the
-// still-C common/ and libbatmondb translation units; include them as extern "C"
-// so this C++ unit links against the unmangled names.
-extern "C" {
 #include <defines.h>
 #include <api.h>
 #include <batmondb.h>
-}
 
 #define CHECK_BATTERY_TIMEOUT_S 15 // s - check battery percentage every 15s
 

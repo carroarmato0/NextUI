@@ -6,15 +6,11 @@
 
 #include <sqlite3.h>
 
-// Project + libbatmondb C headers declare C-linkage symbols defined in the
-// still-C common/ and libbatmondb translation units; include as extern "C".
-extern "C" {
 #include <msettings.h>
 #include "defines.h"
 #include "api.h"
 #include "utils.h"
 #include <batmondb.h>
-}
 
 #define GRAPH_LINE_WIDTH 1
 

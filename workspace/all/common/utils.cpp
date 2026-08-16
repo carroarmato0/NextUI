@@ -12,13 +12,8 @@
 #include <stdint.h>
 #include <sys/time.h>
 
-// Project C headers declare C-linkage symbols; include as extern "C" so this
-// C++ unit's own exports keep C linkage for the still-C platform.c and any C
-// consumers. utils.h carries its own guard.
-extern "C" {
 #include "defines.h"
 #include "utils.h"
-}
 
 ///////////////////////////////////////
 

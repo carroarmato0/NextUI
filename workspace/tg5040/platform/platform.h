@@ -11,8 +11,16 @@
 
 ///////////////////////////////
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern int is_brick;
 extern int is_brickpro;
+
+#ifdef __cplusplus
+}
+#endif
 
 #include "device.h"
 

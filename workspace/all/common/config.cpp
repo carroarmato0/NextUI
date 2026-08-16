@@ -4,14 +4,9 @@
 #include <ctype.h>
 #include <unistd.h>
 
-// Project C headers declare C-linkage symbols; include as extern "C" so this
-// C++ unit's own exports keep C linkage for the still-C platform.c and any C
-// consumers. config.h / utils.h carry their own guards.
-extern "C" {
 #include "config.h"
 #include "defines.h"
 #include "utils.h"
-}
 
 NextUISettings settings = {0};
 

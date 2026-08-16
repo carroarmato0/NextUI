@@ -1,15 +1,10 @@
 #define RA_LOG_PREFIX "RA_OFFLINE"
 
-// Project C headers declare C-linkage symbols; include them as extern "C" so
-// this C++ unit links against the unmangled names and its own exports keep C
-// linkage for the still-C platform.c. (Same pattern as ra_integration.cpp.)
-extern "C" {
 #include "ra_log.h"
 #include "ra_offline.h"
 #include "ra_util.h"
 #include "defines.h"
 #include "api.h"
-}
 
 #include <stdio.h>
 #include <stdlib.h>

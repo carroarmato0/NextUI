@@ -1,12 +1,7 @@
-// Project C headers declare C-linkage symbols; include as extern "C" so this
-// C++ unit links against the unmangled names and its own exports keep C linkage
-// for the still-C platform.c. notification.h carries its own guard.
-extern "C" {
 #include "notification.h"
 #include "defines.h"
 #include "api.h"
 #include "config.h"
-}
 #include <string.h>
 #include <stdio.h>
 

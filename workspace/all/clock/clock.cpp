@@ -4,14 +4,10 @@
 #include <ctime>
 #include <unistd.h>
 
-// Project + libmsettings C headers declare C-linkage symbols defined in the
-// still-C common/ and libmsettings translation units; include as extern "C".
-extern "C" {
 #include <msettings.h>
 #include "defines.h"
 #include "api.h"
 #include "utils.h"
-}
 
 enum {
 	CURSOR_YEAR,

@@ -6,9 +6,7 @@
 #include <dirent.h>
 
 #include "defines.h"
-extern "C" {
 #include "config.h"
-}
 
 static const uint32_t palette_default_colors[PALETTE_COLOR_COUNT] = {
     CFG_DEFAULT_COLOR1, CFG_DEFAULT_COLOR2, CFG_DEFAULT_COLOR3,

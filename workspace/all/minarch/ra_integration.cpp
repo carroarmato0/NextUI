@@ -5,7 +5,6 @@
 // them as extern "C" so this C++ unit links against the unmangled names.
 // (Same pattern as ma_environment.cpp / ma_saves.cpp.)
 #define RA_UTIL_NEED_SDL
-extern "C" {
 #include "ra_log.h"
 #include "ra_integration.h"
 #include "ra_consoles.h"
@@ -20,7 +19,6 @@ extern "C" {
 #include "api.h"
 #include "ra_util.h"
 #include "ra_event_queue.h"
-}
 
 #include <stdio.h>
 #include <stdlib.h>

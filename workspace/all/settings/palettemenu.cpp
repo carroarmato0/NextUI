@@ -1,8 +1,6 @@
 #include "palettemenu.hpp"
 
-extern "C" {
 #include "config.h"
-}
 #include "palette.h"
 
 namespace {

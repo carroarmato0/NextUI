@@ -2,14 +2,8 @@
 #include <time.h>
 #include <lz4.h>
 
-// Project C headers declare C-linkage symbols (core, rewind_ctx, rewind_st, ff,
-// LOG_*, …) defined in the still-C translation units. Include them as extern "C"
-// so this C++ unit links against the unmangled names. (Same pattern as
-// ma_audio.cpp.)
-extern "C" {
 #include "ma_internal.h"
 #include "ma_rewind.h"
-}
 
 RewindContext rewind_ctx = {0};
 

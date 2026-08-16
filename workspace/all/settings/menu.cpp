@@ -1,11 +1,8 @@
 #include "menu.hpp"
 
-extern "C"
-{
 #include "defines.h"
 #include "api.h"
 #include "utils.h"
-}
 
 #include "core/surface.h"
 

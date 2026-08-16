@@ -4,13 +4,9 @@
 #include <math.h>
 #include <dirent.h>
 
-// Project C headers declare C-linkage symbols defined in the still-C translation
-// units; include them as extern "C" so this C++ TU links the unmangled names.
-extern "C" {
 #include "ma_internal.h"
 #include "ma_options.h"
 #include "ma_config.h"
-}
 
 static ButtonMapping button_label_mapping[] = { // used to lookup the retro_id and local btn_id from button name
 	{"NONE",	-1,								BTN_ID_NONE},

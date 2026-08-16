@@ -3,15 +3,11 @@
 #include <unistd.h>
 #include <cmath>
 
-// Project + libmsettings C headers declare C-linkage symbols defined in the
-// still-C common/ and libmsettings translation units; include as extern "C".
-extern "C" {
 #include <msettings.h>
 #include "sdl.h"
 #include "defines.h"
 #include "api.h"
 #include "utils.h"
-}
 
 // full-scale SDL joystick axis magnitude, used to map raw axis values to on-screen nub travel
 #define STICK_AXIS_MAX 32767

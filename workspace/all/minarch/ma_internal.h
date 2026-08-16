@@ -12,6 +12,9 @@
 #include "api.h"
 #include "config.h"
 #include "utils.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 struct Core {
 	int initialized;
@@ -346,3 +349,7 @@ void Core_applyCheats(struct Cheats *cheats);
 
 #include "ma_config.h"
 #include "ma_menu.h"
+
+#ifdef __cplusplus
+}
+#endif

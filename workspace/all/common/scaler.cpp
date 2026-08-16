@@ -2,13 +2,8 @@
 #include <stdint.h>
 #include <string.h>
 
-// Project C headers declare C-linkage symbols; include as extern "C" so this
-// C++ unit's exports (declared in scaler.h) keep C linkage for the still-C
-// platform.c and any C consumers.
-extern "C" {
 #include "platform.h" // for HAS_NEON
 #include "scaler.h"
-}
 
 //
 //	arm NEON / C integer scalers for ARMv7 devices

@@ -1,15 +1,9 @@
 #include <stdbool.h>
 #include <SDL2/SDL.h>
 
-// minarch's C headers declare C-linkage symbols (core, SND_*, LOG_*, …) that
-// are defined in the still-C translation units. Include them as extern "C" so
-// this C++ unit links against the unmangled names. (Same pattern nextui.cpp and
-// settings use around api.h.)
-extern "C" {
 #include <msettings.h>
 #include "ma_internal.h"
 #include "ma_audio.h"
-}
 
 static bool resetAudio = false;
 

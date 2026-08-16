@@ -11,16 +11,11 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
-// Project + libmsettings C headers declare C-linkage symbols; include as
-// extern "C" so this C++ unit's own exports keep C linkage for the still-C
-// platform.c. api.h / utils.h / config.h carry their own guards.
-extern "C" {
 #include <msettings.h>
 #include "defines.h"
 #include "api.h"
 #include "utils.h"
 #include "config.h"
-}
 
 extern pthread_mutex_t audio_mutex;
 

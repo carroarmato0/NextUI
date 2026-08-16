@@ -13,12 +13,7 @@
 #include <tinyalsa/mixer.h>
 
 #include "displaycal.h"
-// This TU implements libmsettings. Wrap its own header in extern "C" so the
-// definitions below keep C linkage -- the .so must export unmangled symbols to
-// stay ABI-compatible with every consumer (which includes msettings.h as C).
-extern "C" {
 #include "msettings.h"
-}
 
 ///////////////////////////////////////
 

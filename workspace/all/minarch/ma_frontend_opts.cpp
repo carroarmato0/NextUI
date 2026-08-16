@@ -3,15 +3,11 @@
 #include <stdio.h>
 #include <libgen.h>
 
-// Project C headers declare C-linkage symbols defined in the still-C translation
-// units; include them as extern "C" so this C++ TU links the unmangled names.
-extern "C" {
 #include "ma_internal.h"
 #include "ma_frontend_opts.h"
 #include "ma_cheats.h"
 #include "ra_integration.h"
 #include "notification.h"
-}
 
 // g++ 8.3 rejects taking the address of an SDL_Rect compound literal in C++
 // ("taking address of temporary"). RectArg wraps one in a class temporary whose

@@ -4,14 +4,10 @@
 
 #include <sqlite3.h>
 
-// Project + libgametimedb C headers declare C-linkage symbols defined in the
-// still-C common/ and libgametimedb translation units; include as extern "C".
-extern "C" {
 #include "defines.h"
 #include "api.h"
 #include "utils.h"
 #include <gametimedb.h>
-}
 
 void printUsage()
 {

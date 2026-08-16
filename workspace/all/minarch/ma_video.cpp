@@ -1,14 +1,9 @@
 #include <string.h>
 #include <math.h>
 
-// Project C headers declare C-linkage symbols defined in the still-C translation
-// units; include them as extern "C" so this C++ unit links against the unmangled
-// names. (<arm_neon.h> further down is self-guarded and stays where it is.)
-extern "C" {
 #include "ma_internal.h"
 #include "scaler.h"
 #include "ma_video.h"
-}
 
 
 // A sparse char->glyph table. Was a C99 designated array (`['0'] = ...`); g++ 8.3

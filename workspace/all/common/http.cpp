@@ -1,10 +1,5 @@
-// Project C headers declare C-linkage symbols; include as extern "C" so this
-// C++ unit links against the unmangled names and its own exports keep C linkage
-// for the still-C platform.c. http.h carries its own guard.
-extern "C" {
 #include "http.h"
 #include "defines.h"
-}
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,9 +10,7 @@ extern "C" {
 // SDL is used here only for threading (SDL_CreateThread/SDL_DetachThread)
 // to run HTTP requests asynchronously without blocking the main loop.
 // HTTP communication itself uses curl via popen().
-extern "C" {
 #include "sdl.h"
-}
 
 // Build version info (defined in makefile)
 #ifndef BUILD_HASH

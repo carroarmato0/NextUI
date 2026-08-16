@@ -1,10 +1,6 @@
 #include <stdlib.h>
 #include <SDL2/SDL_image.h>
 
-// Project C headers declare C-linkage symbols shared with the still-C common/
-// units and with the (now C++) sibling ma_* modules; include them as extern "C"
-// so this C++ unit both links against and defines the unmangled names.
-extern "C" {
 #include <msettings.h>
 
 #include "notification.h"
@@ -23,7 +19,6 @@ extern "C" {
 #include "ma_environment.h"
 #include "ma_config.h"
 #include "ma_runframe.h"
-}
 
 ///////////////////////////////////////
 

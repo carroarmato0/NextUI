@@ -7,12 +7,8 @@
 
 #include <sqlite3.h>
 
-// Project C headers declare C-linkage symbols defined in the still-C common/
-// translation units; include as extern "C". batmondb.h carries its own guard.
-extern "C" {
 #include <defines.h>
 #include <utils.h>
-}
 
 #include "batmondb.h"
 

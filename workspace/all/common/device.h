@@ -1,6 +1,10 @@
 #ifndef DEVICE_H
 #define DEVICE_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // A device model is described by data, not code: the fields below are the
 // only things that differ between hardware variants. Each platform defines
 // one or more descriptors and points deviceModel at the active one (see
@@ -34,5 +38,9 @@ typedef struct DeviceDescriptor {
 	const char* gpu_usage_path;
 } DeviceDescriptor;
 extern const DeviceDescriptor* deviceModel;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // DEVICE_H

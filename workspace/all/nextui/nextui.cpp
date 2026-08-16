@@ -20,13 +20,11 @@
 #include "core/surface.h"
 #include "core/thread_safe_queue.h"
 
-extern "C" {
 #include <msettings.h>
 #include "defines.h"
 #include "api.h"
 #include "utils.h"
 #include "config.h"
-}
 
 ///////////////////////////////////////
 
